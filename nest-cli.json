@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps/api/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "builder": "rspack",
+    "tsConfigPath": "apps/api/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/api",
+  "projects": {
+    "api": {
+      "type": "application",
+      "root": "apps/api",
+      "entryFile": "main",
+      "sourceRoot": "apps/api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api/tsconfig.app.json"
+      }
+    },
+    "tools": {
+      "type": "library",
+      "root": "packages/tools",
+      "entryFile": "index",
+      "sourceRoot": "packages/tools/src",
+      "compilerOptions": {
+        "tsConfigPath": "packages/tools/tsconfig.lib.json"
+      }
+    },
+    "contract": {
+      "type": "library",
+      "root": "packages/contract",
+      "entryFile": "index",
+      "sourceRoot": "packages/contract/src",
+      "compilerOptions": { "tsConfigPath": "packages/contract/tsconfig.json" }
+    },
+    "database": {
+      "type": "library",
+      "root": "packages/database",
+      "entryFile": "index",
+      "sourceRoot": "packages/database/src",
+      "compilerOptions": { "tsConfigPath": "packages/database/tsconfig.json" }
+    },
+    "shared": {
+      "type": "library",
+      "root": "packages/shared",
+      "entryFile": "index",
+      "sourceRoot": "packages/shared/src",
+      "compilerOptions": { "tsConfigPath": "packages/shared/tsconfig.json" }
+    },
+    "storage": {
+      "type": "library",
+      "root": "packages/storage",
+      "entryFile": "index",
+      "sourceRoot": "packages/storage/src",
+      "compilerOptions": { "tsConfigPath": "packages/storage/tsconfig.json" }
+    },
+    "config": {
+      "type": "library",
+      "root": "packages/config",
+      "entryFile": "index",
+      "sourceRoot": "packages/config/src",
+      "compilerOptions": { "tsConfigPath": "packages/config/tsconfig.json" }
+    }
+  }
+}

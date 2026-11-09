@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**"]
+    },
+    "@llm-chatbot-nestjs/api#build": {
+      "outputs": ["$TURBO_ROOT$/dist/apps/api/**"]
+    },
+    "@llm-chatbot-nestjs/tools#build": {
+      "outputs": ["$TURBO_ROOT$/dist/packages/tools/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

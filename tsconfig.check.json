@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.mts",
+    "packages/**/*.ts",
+    "vitest.config.mts"
+  ],
+  "exclude": ["node_modules", "dist", "coverage"]
+}

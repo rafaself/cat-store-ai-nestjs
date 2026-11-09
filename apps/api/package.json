@@ -1,0 +1,26 @@
+{
+  "name": "@llm-chatbot-nestjs/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --dir ../.. exec nest build api",
+    "dev": "pnpm --dir ../.. exec nest start api --watch"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.111",
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/config": "^12.1.1",
+    "@nestjs/core": "^12.0.1",
+    "@nestjs/platform-express": "^12.0.1",
+    "@llm-chatbot-nestjs/config": "workspace:*",
+    "@llm-chatbot-nestjs/contract": "workspace:*",
+    "@llm-chatbot-nestjs/database": "workspace:*",
+    "@llm-chatbot-nestjs/shared": "workspace:*",
+    "@llm-chatbot-nestjs/storage": "workspace:*",
+    "@llm-chatbot-nestjs/tools": "workspace:*",
+    "ai": "^7.0.165",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^4.6.7"
+  }
+}
