@@ -24,8 +24,11 @@ pnpm install
 cp .env.example .env
 ```
 
-The API uses the single Nest AI text model `default`, configured directly as
-`amazonBedrock('us.openai.gpt-6-luna')`. `AWS_REGION` defaults to `us-east-1`.
+The API and worker read `.env` into their configuration without changing
+`process.env`. Values already present in the process environment take precedence.
+
+The API and worker share the Nest AI text model `default`, configured through
+`createAmazonBedrock` with `us.openai.gpt-6-luna`. `AWS_REGION` defaults to `us-east-1`.
 The embedding registry's `default` model is Amazon Titan Text Embeddings v2,
 which returns 1024-dimensional vectors. Set `AWS_BEARER_TOKEN_BEDROCK` in
 `.env`, or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for SigV4
@@ -33,21 +36,23 @@ authentication (also set `AWS_SESSION_TOKEN` when using temporary credentials).
 Chat, email AI services, product indexing, and product search need Bedrock
 credentials.
 
-The sample connects to PostgreSQL with pgvector. Start the local database first:
+The sample uses PostgreSQL with pgvector, Redis, and Mailpit. Start them first:
 
 ```sh
-docker compose up -d db
+docker compose up -d db redis mailpit
 ```
 
 The first database initializes both `chatbot` for development and
 `chatbot_test` for end-to-end tests. Set `DATABASE_URL` in `.env` if needed.
 Compose publishes PostgreSQL on `127.0.0.1:15432` by default.
-The API applies tracked SQL migrations at startup and seeds two demo customers,
+Existing database volumes created before the test database initialization was
+added may need `docker compose exec db createdb -U chatbot chatbot_test` once.
+The API and worker apply tracked SQL migrations at startup and seed two demo customers,
 sample orders, payments, and products. Product embeddings are generated on
 demand with `POST /catalog/index`; the route requires the support bearer token.
 
 The example uses `DEMO_CUSTOMER_TOKEN` for the seeded `cus_123` identity and
-`SUPPORT_APPROVAL_TOKEN` for refund review and catalog indexing. The web app
+`SUPPORT_APPROVAL_TOKEN` for refund review, catalog indexing, and email jobs. The web app
 reads `VITE_DEMO_CUSTOMER_TOKEN` from the root `.env`. These demo guards refuse
 requests when `NODE_ENV=production`; use a real authentication system before
 deploying. Generate a private `WORKFLOWS_ENCRYPTION_KEY` with
@@ -61,7 +66,7 @@ provider integration.
 pnpm dev
 ```
 
-This starts the API and React frontend together. The API listens on port `3000`
+This starts the API, worker, and React frontend together. The API listens on port `3000`
 by default. It serves `GET /health`, authenticated streaming
 `POST /assistant/chat`, public `GET /catalog/search?q=...`, support-only
 `POST /catalog/index`, customer-authenticated `POST /refunds`, and support-only
@@ -69,12 +74,44 @@ refund approval routes under `/refunds/:runId/approvals`. The Vite server proxie
 `/api/*` to the API. Chat accepts text-only conversations with up to 40 messages
 and is limited to 10 requests per minute per client IP.
 
-The support triage, reply drafting, and invoice extraction services are
-injectable Nest providers, ready to be connected to an email intake workflow.
-They are not exposed as public HTTP endpoints.
+### Email drafting
 
-To start either app on its own, run `pnpm --filter @llm-chatbot-nestjs/api dev`
-or `pnpm --filter @llm-chatbot-nestjs/web dev`.
+Mailpit captures test messages at SMTP `127.0.0.1:11025` and provides its web UI
+and API at `http://127.0.0.1:18025`. Submit a test message, then use its returned
+message ID to request a draft:
+
+```sh
+curl -X POST http://127.0.0.1:18025/api/v1/send \
+  -H 'Content-Type: application/json' \
+  -d '{"From":{"Email":"customer@example.test","Name":"Pat"},"To":[{"Email":"support@example.test"}],"Subject":"My order","Text":"My order arrived damaged."}'
+
+curl -X POST http://127.0.0.1:3000/email-jobs \
+  -H 'Authorization: Bearer demo-support-token-change-me' \
+  -H 'Content-Type: application/json' -d '{"messageId":"MAILPIT_MESSAGE_ID"}'
+
+curl http://127.0.0.1:3000/email-jobs/JOB_ID \
+  -H 'Authorization: Bearer demo-support-token-change-me'
+```
+
+Use the `ID` returned by Mailpit and the `jobId` returned by the API. Substitute
+your configured support token if it differs from the example. Submitting a job
+is explicit; Mailpit messages are not automatically enqueued. The worker reads
+plain-text messages up to 2 MiB, classifies the first 12,000 characters, and
+stores a reply draft for review. Reading a message marks it as read in Mailpit.
+It does not send an email. Mailpit captures test messages and does not connect
+to a real inbox. Its API is bound to localhost by the provided Compose setup.
+
+Email jobs are support-only and use the single demo support identity; real
+multi-user deployments need a real identity and mailbox authorization. Redis
+stores job identifiers and status, not message contents. Completed queue entries
+expire after seven days, failed entries after 30 days, and drafts remain in
+PostgreSQL. A repeated request for the same message returns the existing draft.
+If a worker fails before saving a draft, a retry may call the model again; the
+database constraint ensures only one draft is saved for that message and identity.
+
+To start one app on its own, use `pnpm --filter @llm-chatbot-nestjs/api dev`,
+`pnpm --filter @llm-chatbot-nestjs/worker dev`, or
+`pnpm --filter @llm-chatbot-nestjs/web dev`.
 
 ## Testing and build
 
@@ -101,6 +138,10 @@ external service calls.
   modules live in `apps/api/src/apps`; database integration lives in
   `apps/api/src/database`.
 - `apps/web` contains the React chat interface, built and served with Vite.
+- `apps/worker` processes queued jobs in feature modules; its first module reads
+  Mailpit messages and generates email drafts.
+- `packages/ai` provides the shared Nest AI and Bedrock configuration used by
+  the API and worker.
 - `packages/config` provides typed API, database, Bedrock, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP
   boundary.
