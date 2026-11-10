@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
-import type { OrderEntity } from '../entities.js';
+import type { OrderEntity } from './order.entity.js';
 
 export interface CustomerOrder {
   id: string;

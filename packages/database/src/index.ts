@@ -6,23 +6,21 @@ export type {
 } from './database.module.js';
 export { DatabaseService } from './database.service.js';
 export type { Pool as DatabasePool } from 'pg';
-export type {
-  CustomerEntity,
-  OrderEntity,
-  PaymentEntity,
-  PaymentRefundEntity,
-  ProductEntity,
-} from './entities.js';
+export type { CustomerEntity } from './customers/customer.entity.js';
+export type { ProductEntity } from './catalog/catalog.entity.js';
 export {
   CatalogRepository,
   type ProductToIndex,
-} from './repositories/catalog.repository.js';
+} from './catalog/catalog.repository.js';
+export type { OrderEntity } from './orders/order.entity.js';
 export {
   OrdersRepository,
   type CustomerOrder,
-} from './repositories/orders.repository.js';
+} from './orders/orders.repository.js';
+export type { PaymentEntity } from './payments/payment.entity.js';
+export type { PaymentRefundEntity } from './payments/payment-refund.entity.js';
 export {
   PaymentsRepository,
   type PersistedRefund,
   type RefundPersistenceResult,
-} from './repositories/payments.repository.js';
+} from './payments/payments.repository.js';

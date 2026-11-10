@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  OrderEntity,
-  PaymentEntity,
-  PaymentRefundEntity,
-} from '../entities.js';
+import type { OrderEntity } from '../orders/order.entity.js';
+import type { PaymentEntity } from './payment.entity.js';
+import type { PaymentRefundEntity } from './payment-refund.entity.js';
 import { DatabaseService } from '../database.service.js';
 
 export interface PersistedRefund {

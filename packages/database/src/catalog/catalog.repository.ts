@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { ProductSearchResult } from '@llm-chatbot-nestjs/shared';
 import { DatabaseService } from '../database.service.js';
-import type { ProductEntity } from '../entities.js';
+import type { ProductEntity } from './catalog.entity.js';
 
 export interface ProductToIndex {
   id: string;
