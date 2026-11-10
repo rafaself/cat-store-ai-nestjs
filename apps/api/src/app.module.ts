@@ -1,3 +1,6 @@
+import { BullModule } from '@nestjs/bullmq';
+import { createQueueConfig, buildQueueOptions } from './config/queue.config';
+import { EmailJobsModule } from './apps/email-jobs/email-jobs.module';
 import { Module } from '@nestjs/common';
 import { AiModule } from '@nestjs/ai';
 import { WorkflowsModule } from '@nestjs/workflows';
@@ -5,14 +8,14 @@ import { ConfigModule } from '@nestjs/config';
 import { resolve } from 'node:path';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
-  databaseConfig,
+  createDatabaseConfig,
   buildDatabaseOptions,
 } from './database/database.config';
 import { DatabaseService } from './database/database.service';
 import { WorkflowPool } from './database/workflow-pool';
-import { bedrockConfig, buildAiOptions } from './config/ai.config';
+import { createBedrockConfig, buildAiOptions } from '@llm-chatbot-nestjs/ai';
 import {
-  workflowsConfig,
+  createWorkflowsConfig,
   buildWorkflowOptions,
 } from './config/workflows.config';
 import {
@@ -25,16 +28,25 @@ import { OrdersModule } from './apps/orders/orders.module';
 import { PaymentsModule } from './apps/payments/payments.module';
 import { RefundsModule } from './apps/refunds/refunds.module';
 import { HealthController } from './health.controller';
-import { validateEnvironment } from '@llm-chatbot-nestjs/config';
+import {
+  readEnvironment,
+  validateEnvironment,
+} from '@llm-chatbot-nestjs/config';
 import { SupportModule } from './apps/support/support.module';
+
+const environment = readEnvironment(resolve(__dirname, '../../../.env'));
+const databaseConfig = createDatabaseConfig(environment);
+const bedrockConfig = createBedrockConfig(environment);
+const workflowsConfig = createWorkflowsConfig(environment);
+const queueConfig = createQueueConfig(environment);
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: resolve(__dirname, '../../../.env'),
-      validate: validateEnvironment,
-      load: [databaseConfig, bedrockConfig, workflowsConfig],
+      ignoreEnvFile: true,
+      validate: () => validateEnvironment(environment),
+      load: [databaseConfig, bedrockConfig, workflowsConfig, queueConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [databaseConfig.KEY],
@@ -49,6 +61,11 @@ import { SupportModule } from './apps/support/support.module';
       inject: [workflowsConfig.KEY],
       useFactory: buildWorkflowOptions,
     }),
+    BullModule.forRootAsync({
+      inject: [queueConfig.KEY],
+      useFactory: buildQueueOptions,
+    }),
+    EmailJobsModule,
     OrdersModule,
     SupportModule,
     PaymentsModule,

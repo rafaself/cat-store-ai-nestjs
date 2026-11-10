@@ -1,0 +1,33 @@
+{
+  "name": "@llm-chatbot-nestjs/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --dir ../.. exec nest build worker",
+    "dev": "pnpm --dir ../.. --filter @llm-chatbot-nestjs/worker^... build && pnpm --dir ../.. exec nest start worker --watch"
+  },
+  "dependencies": {
+    "@llm-chatbot-nestjs/ai": "workspace:*",
+    "@llm-chatbot-nestjs/config": "workspace:*",
+    "@llm-chatbot-nestjs/contracts": "workspace:*",
+    "@llm-chatbot-nestjs/database": "workspace:*",
+    "@nestjs/ai": "^0.0.2",
+    "@nestjs/bullmq": "12.0.0",
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/config": "^12.1.1",
+    "@nestjs/core": "^12.0.1",
+    "@nestjs/typeorm": "12.0.2",
+    "bullmq": "6.5.0",
+    "pg": "8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "1.1.1",
+    "zod": "^4.6.7",
+    "ioredis": "5.11.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "8.23.1",
+    "typescript": "^6.0.2"
+  }
+}

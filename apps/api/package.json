@@ -7,7 +7,6 @@
     "dev": "pnpm --dir ../.. --filter @llm-chatbot-nestjs/api^... build && pnpm --dir ../.. exec nest start api --watch"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^5.0.135",
     "@llm-chatbot-nestjs/config": "workspace:*",
     "@llm-chatbot-nestjs/contracts": "workspace:*",
     "@llm-chatbot-nestjs/database": "workspace:*",
@@ -27,7 +26,11 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "1.1.1",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@llm-chatbot-nestjs/ai": "workspace:*",
+    "@nestjs/bullmq": "12.0.0",
+    "bullmq": "6.5.0",
+    "ioredis": "5.11.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

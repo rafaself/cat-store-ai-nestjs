@@ -1,0 +1,25 @@
+{
+  "name": "@llm-chatbot-nestjs/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^5.0.135",
+    "@llm-chatbot-nestjs/config": "workspace:*",
+    "@nestjs/ai": "^0.0.2",
+    "@nestjs/config": "^12.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.2"
+  }
+}

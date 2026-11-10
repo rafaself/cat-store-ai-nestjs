@@ -1,14 +1,15 @@
-import { registerAs, type ConfigType } from '@nestjs/config';
+import { registerAs } from '@nestjs/config';
 import { AesGcmPayloadCodec } from '@nestjs/workflows';
-import { loadWorkflowConfig } from '@llm-chatbot-nestjs/config';
+import {
+  loadWorkflowConfig,
+  type WorkflowConfig,
+  type Environment,
+} from '@llm-chatbot-nestjs/config';
 
-export const workflowsConfig = registerAs('workflows', () =>
-  loadWorkflowConfig(process.env),
-);
+export const createWorkflowsConfig = (environment: Environment) =>
+  registerAs('workflows', () => loadWorkflowConfig(environment));
 
-export function buildWorkflowOptions(
-  config: ConfigType<typeof workflowsConfig>,
-) {
+export function buildWorkflowOptions(config: WorkflowConfig) {
   return {
     worker: config.worker,
     retry: config.retry,

@@ -9,11 +9,32 @@ const bedrockEnvSchema = z
       .string()
       .optional()
       .transform(toOptionalNonEmptyString),
+    AWS_ACCESS_KEY_ID: z
+      .string()
+      .optional()
+      .transform(toOptionalNonEmptyString),
+    AWS_SECRET_ACCESS_KEY: z
+      .string()
+      .optional()
+      .transform(toOptionalNonEmptyString),
+    AWS_SESSION_TOKEN: z
+      .string()
+      .optional()
+      .transform(toOptionalNonEmptyString),
   })
   .transform(
-    ({ AWS_REGION: region, AWS_BEARER_TOKEN_BEDROCK: bearerToken }) => ({
+    ({
+      AWS_REGION: region,
+      AWS_BEARER_TOKEN_BEDROCK: bearerToken,
+      AWS_ACCESS_KEY_ID: accessKeyId,
+      AWS_SECRET_ACCESS_KEY: secretAccessKey,
+      AWS_SESSION_TOKEN: sessionToken,
+    }) => ({
       region,
       bearerToken,
+      accessKeyId,
+      secretAccessKey,
+      sessionToken,
       modelId: 'us.openai.gpt-6-luna',
       embeddingModelId: 'amazon.titan-embed-text-v2:0',
       defaults: {

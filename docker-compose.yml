@@ -9,12 +9,35 @@ services:
       - '127.0.0.1:15432:5432'
     volumes:
       - chatbot-postgres:/var/lib/postgresql/data
-      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+      - ./infra/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U chatbot -d chatbot']
       interval: 3s
       timeout: 3s
       retries: 20
+  redis:
+    image: redis:8.6.1-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:16379:6379'
+    volumes:
+      - chatbot-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    ports:
+      - '127.0.0.1:11025:1025'
+      - '127.0.0.1:18025:8025'
+    volumes:
+      - chatbot-mailpit:/data
 
 volumes:
   chatbot-postgres:
+  chatbot-redis:
+  chatbot-mailpit:

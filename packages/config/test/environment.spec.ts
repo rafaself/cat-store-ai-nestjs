@@ -1,5 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import { validateEnvironment } from '../src/environment.js';
+import { loadMailpitConfig, loadQueueConfig } from '../src/jobs.js';
+import { loadBedrockConfig } from '../src/bedrock.js';
+
+describe('Bedrock credentials', () => {
+  it('loads explicit credentials and normalizes empty values', () => {
+    expect(
+      loadBedrockConfig({
+        AWS_REGION: 'us-west-2',
+        AWS_BEARER_TOKEN_BEDROCK: '  bearer-example  ',
+        AWS_ACCESS_KEY_ID: '  access-example  ',
+        AWS_SECRET_ACCESS_KEY: '  secret-example  ',
+        AWS_SESSION_TOKEN: '  session-example  ',
+      }),
+    ).toMatchObject({
+      region: 'us-west-2',
+      bearerToken: 'bearer-example',
+      accessKeyId: 'access-example',
+      secretAccessKey: 'secret-example',
+      sessionToken: 'session-example',
+    });
+    expect(
+      loadBedrockConfig({ AWS_ACCESS_KEY_ID: ' ', AWS_SESSION_TOKEN: '' }),
+    ).toMatchObject({
+      accessKeyId: undefined,
+      secretAccessKey: undefined,
+      sessionToken: undefined,
+    });
+  });
+});
+
+describe('job infrastructure configuration', () => {
+  it('uses local defaults and rejects invalid endpoints', () => {
+    expect(loadQueueConfig({})).toEqual({ host: '127.0.0.1', port: 16379 });
+    expect(loadMailpitConfig({})).toEqual({ url: 'http://127.0.0.1:18025' });
+    expect(() => loadQueueConfig({ REDIS_PORT: '70000' })).toThrow(
+      'Invalid environment configuration',
+    );
+    expect(() =>
+      loadMailpitConfig({ MAILPIT_URL: 'file:///tmp/mail' }),
+    ).toThrow('Invalid environment configuration');
+  });
+});
 
 describe('validateEnvironment', () => {
   const workflowKey = 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
@@ -13,6 +55,9 @@ describe('validateEnvironment', () => {
       bedrock: {
         region: 'us-east-1',
         bearerToken: undefined,
+        accessKeyId: undefined,
+        secretAccessKey: undefined,
+        sessionToken: undefined,
         modelId: 'us.openai.gpt-6-luna',
         embeddingModelId: 'amazon.titan-embed-text-v2:0',
         defaults: {

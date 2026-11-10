@@ -4,6 +4,7 @@ import { CustomerEntity } from './customers/customer.entity.js';
 import { OrderEntity } from './orders/order.entity.js';
 import { PaymentEntity } from './payments/payment.entity.js';
 import { PaymentRefundEntity } from './payments/payment-refund.entity.js';
+import { EmailDraftEntity } from './email/email-draft.entity.js';
 
 export function databaseOptions(options: {
   connectionString: string;
@@ -19,6 +20,7 @@ export function databaseOptions(options: {
       PaymentEntity,
       PaymentRefundEntity,
       ProductEntity,
+      EmailDraftEntity,
     ],
     synchronize: false,
     extra: {

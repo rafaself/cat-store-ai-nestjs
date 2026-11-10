@@ -25,11 +25,29 @@
     {
       "path": "./packages/tools/tsconfig.lib.json"
     },
-    { "path": "./packages/contracts/tsconfig.json" },
-    { "path": "./packages/database/tsconfig.json" },
-    { "path": "./packages/shared/tsconfig.json" },
-    { "path": "./packages/workflow-storage/tsconfig.json" },
-    { "path": "./packages/config/tsconfig.json" },
-    { "path": "./apps/api/tsconfig.app.json" }
+    {
+      "path": "./packages/contracts/tsconfig.json"
+    },
+    {
+      "path": "./packages/database/tsconfig.json"
+    },
+    {
+      "path": "./packages/shared/tsconfig.json"
+    },
+    {
+      "path": "./packages/workflow-storage/tsconfig.json"
+    },
+    {
+      "path": "./packages/config/tsconfig.json"
+    },
+    {
+      "path": "./apps/api/tsconfig.app.json"
+    },
+    {
+      "path": "./packages/ai/tsconfig.json"
+    },
+    {
+      "path": "./apps/worker/tsconfig.app.json"
+    }
   ]
 }

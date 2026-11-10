@@ -33,21 +33,27 @@
       "root": "packages/contracts",
       "entryFile": "index",
       "sourceRoot": "packages/contracts/src",
-      "compilerOptions": { "tsConfigPath": "packages/contracts/tsconfig.json" }
+      "compilerOptions": {
+        "tsConfigPath": "packages/contracts/tsconfig.json"
+      }
     },
     "database": {
       "type": "library",
       "root": "packages/database",
       "entryFile": "index",
       "sourceRoot": "packages/database/src",
-      "compilerOptions": { "tsConfigPath": "packages/database/tsconfig.json" }
+      "compilerOptions": {
+        "tsConfigPath": "packages/database/tsconfig.json"
+      }
     },
     "shared": {
       "type": "library",
       "root": "packages/shared",
       "entryFile": "index",
       "sourceRoot": "packages/shared/src",
-      "compilerOptions": { "tsConfigPath": "packages/shared/tsconfig.json" }
+      "compilerOptions": {
+        "tsConfigPath": "packages/shared/tsconfig.json"
+      }
     },
     "workflow-storage": {
       "type": "library",
@@ -63,7 +69,27 @@
       "root": "packages/config",
       "entryFile": "index",
       "sourceRoot": "packages/config/src",
-      "compilerOptions": { "tsConfigPath": "packages/config/tsconfig.json" }
+      "compilerOptions": {
+        "tsConfigPath": "packages/config/tsconfig.json"
+      }
+    },
+    "worker": {
+      "type": "application",
+      "root": "apps/worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/worker/tsconfig.app.json"
+      }
+    },
+    "ai": {
+      "type": "library",
+      "root": "packages/ai",
+      "entryFile": "index",
+      "sourceRoot": "packages/ai/src",
+      "compilerOptions": {
+        "tsConfigPath": "packages/ai/tsconfig.json"
+      }
     }
   }
 }

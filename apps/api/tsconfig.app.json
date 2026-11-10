@@ -8,11 +8,26 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"],
   "references": [
-    { "path": "../../packages/config/tsconfig.json" },
-    { "path": "../../packages/contracts/tsconfig.json" },
-    { "path": "../../packages/database/tsconfig.json" },
-    { "path": "../../packages/shared/tsconfig.json" },
-    { "path": "../../packages/workflow-storage/tsconfig.json" },
-    { "path": "../../packages/tools/tsconfig.lib.json" }
+    {
+      "path": "../../packages/config/tsconfig.json"
+    },
+    {
+      "path": "../../packages/contracts/tsconfig.json"
+    },
+    {
+      "path": "../../packages/database/tsconfig.json"
+    },
+    {
+      "path": "../../packages/shared/tsconfig.json"
+    },
+    {
+      "path": "../../packages/workflow-storage/tsconfig.json"
+    },
+    {
+      "path": "../../packages/tools/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/ai/tsconfig.json"
+    }
   ]
 }

@@ -6,11 +6,16 @@
       "outputs": ["dist/**", "build/**"]
     },
     "@llm-chatbot-nestjs/api#build": {
+      "dependsOn": ["^build"],
       "outputs": ["$TURBO_ROOT$/dist/apps/api/**"]
     },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "@llm-chatbot-nestjs/worker#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["$TURBO_ROOT$/dist/apps/worker/**"]
     }
   }
 }

@@ -10,6 +10,17 @@ export {
 } from './catalog.js';
 export { healthResponseSchema, type HealthResponse } from './health.js';
 export {
+  EMAIL_QUEUE,
+  DRAFT_EMAIL_JOB,
+  emailMessageIdSchema,
+  createEmailJobSchema,
+  emailJobPayloadSchema,
+  emailJobIdSchema,
+  emailJobAcceptedSchema,
+  emailJobStatusSchema,
+  type EmailJobPayload,
+} from './email-jobs.js';
+export {
   pendingRefundApprovalSchema,
   pendingRefundApprovalsResponseSchema,
   refundDecisionResponseSchema,
