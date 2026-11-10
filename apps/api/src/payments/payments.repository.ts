@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { OrderEntity } from '../orders/order.entity.js';
-import type { PaymentEntity } from './payment.entity.js';
-import type { PaymentRefundEntity } from './payment-refund.entity.js';
-import { DatabaseService } from '../database.service.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { PaymentEntity } from '@llm-chatbot-nestjs/database';
+import { RepositoryDatabase } from '../database/repository-database';
+import type {
+  OrderEntity,
+  PaymentRefundEntity,
+} from '@llm-chatbot-nestjs/database';
 
 export interface PersistedRefund {
   paymentId: string;
@@ -16,7 +20,13 @@ export type RefundPersistenceResult =
 
 @Injectable()
 export class PaymentsRepository {
-  constructor(private readonly database: DatabaseService) {}
+  private readonly database: RepositoryDatabase;
+
+  constructor(
+    @InjectRepository(PaymentEntity) repository: Repository<PaymentEntity>,
+  ) {
+    this.database = new RepositoryDatabase(repository.manager);
+  }
 
   refundOrder(
     customerId: string,

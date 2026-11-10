@@ -1,6 +1,16 @@
-export interface PaymentEntity {
-  id: string;
-  amount_cents: number;
-  refunded_cents: number;
-  status: 'captured' | 'partially_refunded' | 'refunded';
+import { Column, Entity, PrimaryColumn } from 'typeorm';
+
+@Entity('payments')
+export class PaymentEntity {
+  @PrimaryColumn({ type: 'text' })
+  id!: string;
+
+  @Column({ type: 'integer' })
+  amount_cents!: number;
+
+  @Column({ type: 'integer' })
+  refunded_cents!: number;
+
+  @Column({ type: 'text' })
+  status!: string;
 }

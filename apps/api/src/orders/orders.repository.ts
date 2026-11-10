@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database.service.js';
-import type { OrderEntity } from './order.entity.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { OrderEntity } from '@llm-chatbot-nestjs/database';
+import { RepositoryDatabase } from '../database/repository-database';
 
 export interface CustomerOrder {
   id: string;
@@ -12,23 +14,30 @@ export interface CustomerOrder {
 
 @Injectable()
 export class OrdersRepository {
-  constructor(private readonly database: DatabaseService) {}
+  private readonly database: RepositoryDatabase;
+
+  constructor(
+    @InjectRepository(OrderEntity)
+    private readonly repository: Repository<OrderEntity>,
+  ) {
+    this.database = new RepositoryDatabase(this.repository.manager);
+  }
 
   async findForCustomer(
     customerId: string,
     orderId: string,
   ): Promise<CustomerOrder | null> {
-    const result = await this.database.query<
-      Pick<
-        OrderEntity,
-        'id' | 'status' | 'total_cents' | 'delivery_address' | 'refundable'
-      >
-    >(
-      `SELECT id, status, total_cents, delivery_address, refundable
-       FROM orders WHERE id = $1 AND customer_id = $2`,
-      [orderId, customerId],
-    );
-    return toCustomerOrder(result.rows[0]);
+    const order = await this.repository.findOne({
+      where: { id: orderId, customer_id: customerId },
+      select: {
+        id: true,
+        status: true,
+        total_cents: true,
+        delivery_address: true,
+        refundable: true,
+      },
+    });
+    return toCustomerOrder(order);
   }
 
   async changeAddress(
@@ -57,7 +66,8 @@ function toCustomerOrder(
         OrderEntity,
         'id' | 'status' | 'total_cents' | 'delivery_address' | 'refundable'
       >
-    | undefined,
+    | undefined
+    | null,
 ): CustomerOrder | null {
   return order
     ? {

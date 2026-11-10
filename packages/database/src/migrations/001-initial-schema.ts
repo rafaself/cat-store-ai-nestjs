@@ -1,8 +1,8 @@
-import type { PoolClient } from 'pg';
+import type { QueryRunner } from 'typeorm';
 
 export const migrationName = '001-initial-schema';
 
-export async function up(client: PoolClient): Promise<void> {
+export async function up(client: QueryRunner): Promise<void> {
   await client.query(`
     CREATE EXTENSION IF NOT EXISTS vector;
 

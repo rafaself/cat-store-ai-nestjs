@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  OrdersRepository,
-  type CustomerOrder,
-} from '@llm-chatbot-nestjs/database';
+import { OrdersRepository, type CustomerOrder } from './orders.repository';
 
 export type OrderRecord = CustomerOrder;
 

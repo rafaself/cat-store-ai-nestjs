@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ProductEntity } from '@llm-chatbot-nestjs/database';
+import { RepositoryDatabase } from '../database/repository-database';
 import type { ProductSearchResult } from '@llm-chatbot-nestjs/shared';
-import { DatabaseService } from '../database.service.js';
-import type { ProductEntity } from './catalog.entity.js';
 
 export interface ProductToIndex {
   id: string;
@@ -11,13 +13,20 @@ export interface ProductToIndex {
 
 @Injectable()
 export class CatalogRepository {
-  constructor(private readonly database: DatabaseService) {}
+  private readonly database: RepositoryDatabase;
+
+  constructor(
+    @InjectRepository(ProductEntity)
+    private readonly repository: Repository<ProductEntity>,
+  ) {
+    this.database = new RepositoryDatabase(this.repository.manager);
+  }
 
   async findProductsToIndex(): Promise<ProductToIndex[]> {
-    const result = await this.database.query<
-      Pick<ProductEntity, 'id' | 'name' | 'description'>
-    >('SELECT id, name, description FROM products ORDER BY id');
-    return result.rows;
+    return this.repository.find({
+      select: { id: true, name: true, description: true },
+      order: { id: 'ASC' },
+    });
   }
 
   async updateEmbeddings(

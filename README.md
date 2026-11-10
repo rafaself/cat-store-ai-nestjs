@@ -96,16 +96,17 @@ external service calls.
 
 - `apps/api` contains the NestJS application, Bedrock models, assistant and
   catalog routes, support/order/refund modules, health route, and unit/e2e
-  tests. Its feature services use package repositories instead of issuing SQL.
+  tests. Its feature modules inject TypeORM repositories and contain the
+  PostgreSQL queries used for catalog, order, and payment operations.
 - `apps/web` contains the React chat interface, built and served with Vite.
 - `packages/config` provides typed API, database, Bedrock, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP
   boundary.
-- `packages/database` owns the PostgreSQL pool, migrations, typed records, and
-  catalog/order/payment repositories. The API configures its connection through
-  the package module's async registration API.
-- `packages/workflow-storage` adapts the database pool to durable workflow
-  persistence.
+- `packages/database` owns TypeORM entities, connection options, and the
+  existing SQL migration. It has no Nest dependency. The API configures
+  TypeORM and runs the migration at startup with the existing migration ledger.
+- `packages/workflow-storage` adapts a dedicated PostgreSQL pool to durable
+  workflow persistence.
 - `packages/shared` contains domain types used by both persistence and HTTP
   contracts. `packages/tools` contains framework-independent helper functions
   used by config parsing.

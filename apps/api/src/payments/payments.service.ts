@@ -6,7 +6,7 @@ import {
 import {
   PaymentsRepository,
   type PersistedRefund,
-} from '@llm-chatbot-nestjs/database';
+} from './payments.repository';
 
 export interface SimulatedRefund extends PersistedRefund {
   status: 'simulated';

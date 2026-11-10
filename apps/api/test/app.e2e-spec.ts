@@ -12,8 +12,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { DatabaseService } from '@llm-chatbot-nestjs/database';
+import { DatabaseService } from '../src/database/database.service';
 import { PaymentsService } from '../src/payments/payments.service';
+import { randomUUID } from 'node:crypto';
 
 function fakeEmbedding(text: string): number[] {
   const vector = Array.from({ length: 1024 }, () => 0);
@@ -249,6 +250,47 @@ describe('Cat store API (e2e)', () => {
     );
     expect(rejectedPayment.rows[0]?.refunded_cents).toBe(0);
   }, 20_000);
+
+  it('serializes concurrent refunds for the same order', async () => {
+    const database = app.get(DatabaseService);
+    const suffix = randomUUID();
+    const paymentId = `pay-${suffix}`;
+    const orderId = `ord-${suffix}`;
+    await database.query(
+      "INSERT INTO payments (id, amount_cents, status) VALUES ($1, 1500, 'captured')",
+      [paymentId],
+    );
+    await database.query(
+      "INSERT INTO orders (id, customer_id, payment_id, status, total_cents, delivery_address, refundable) VALUES ($1, 'cus_123', $2, 'delivered', 1500, 'Test address', true)",
+      [orderId, paymentId],
+    );
+
+    try {
+      const payments = app.get(PaymentsService);
+      const results = await Promise.allSettled([
+        payments.refundOrder('cus_123', orderId, `first-${suffix}`),
+        payments.refundOrder('cus_123', orderId, `second-${suffix}`),
+      ]);
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(
+        results.filter((result) => result.status === 'rejected'),
+      ).toHaveLength(1);
+      const refunds = await database.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id = $1',
+        [paymentId],
+      );
+      expect(refunds.rows[0]?.count).toBe('1');
+    } finally {
+      await database.query(
+        'DELETE FROM payment_refunds WHERE payment_id = $1',
+        [paymentId],
+      );
+      await database.query('DELETE FROM orders WHERE id = $1', [orderId]);
+      await database.query('DELETE FROM payments WHERE id = $1', [paymentId]);
+    }
+  });
 
   async function waitForApprovals(runId: string) {
     const support = 'Bearer test-support-token';

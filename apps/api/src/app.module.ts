@@ -3,13 +3,20 @@ import { AiModule } from '@nestjs/ai';
 import { AesGcmPayloadCodec, WorkflowsModule } from '@nestjs/workflows';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { resolve } from 'node:path';
-import { DatabaseModule } from '@llm-chatbot-nestjs/database';
+import { databaseOptions } from '@llm-chatbot-nestjs/database';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import * as pg from 'pg';
+import { DatabaseService } from './database/database.service';
+import { WorkflowPool } from './database/workflow-pool';
 import type {
   BedrockConfig,
   DatabaseConfig,
   WorkflowConfig,
 } from '@llm-chatbot-nestjs/config';
-import { postgresWorkflowStoreProvider } from '@llm-chatbot-nestjs/workflow-storage';
+import {
+  postgresWorkflowStoreProvider,
+  WORKFLOW_DATABASE_POOL,
+} from '@llm-chatbot-nestjs/workflow-storage';
 import { AssistantModule } from './assistant/assistant.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { OrdersModule } from './orders/orders.module';
@@ -26,11 +33,13 @@ import { SupportModule } from './support/support.module';
       envFilePath: resolve(__dirname, '../../../.env'),
       validate: validateEnvironment,
     }),
-    DatabaseModule.forRootAsync({
+    TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        config.getOrThrow<DatabaseConfig>('database'),
+      useFactory: (config: ConfigService) => ({
+        ...databaseOptions(config.getOrThrow<DatabaseConfig>('database')),
+        driver: pg,
+      }),
     }),
     AiModule.forRootAsync({
       isGlobal: true,
@@ -79,7 +88,12 @@ import { SupportModule } from './support/support.module';
     RefundsModule,
     AssistantModule,
   ],
-  providers: [postgresWorkflowStoreProvider],
+  providers: [
+    DatabaseService,
+    WorkflowPool,
+    { provide: WORKFLOW_DATABASE_POOL, useExisting: WorkflowPool },
+    postgresWorkflowStoreProvider,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}
