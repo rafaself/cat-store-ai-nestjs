@@ -9,5 +9,6 @@ export default defineConfig({
     root: process.cwd(),
     include: ['apps/api/test/**/*.e2e-spec.ts'],
     environment: 'node',
+    setupFiles: ['./apps/api/test/setup.e2e.ts'],
   },
 });
