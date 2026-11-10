@@ -12,7 +12,7 @@ import {
   catalogSearchQuerySchema,
   catalogSearchResponseSchema,
 } from '@llm-chatbot-nestjs/contracts';
-import { SupportApprovalGuard } from '../auth/demo-auth.guard';
+import { SupportApprovalGuard } from '../../auth/demo-auth.guard';
 import { CatalogService } from './catalog.service';
 
 @Controller('catalog')

@@ -97,7 +97,9 @@ external service calls.
 - `apps/api` contains the NestJS application, Bedrock models, assistant and
   catalog routes, support/order/refund modules, health route, and unit/e2e
   tests. Its feature modules inject TypeORM repositories and contain the
-  PostgreSQL queries used for catalog, order, and payment operations.
+  PostgreSQL queries used for catalog, order, and payment operations. Feature
+  modules live in `apps/api/src/apps`; database integration lives in
+  `apps/api/src/database`.
 - `apps/web` contains the React chat interface, built and served with Vite.
 - `packages/config` provides typed API, database, Bedrock, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { DemoCustomerGuard } from '../auth/demo-auth.guard';
+import { DemoCustomerGuard } from '../../auth/demo-auth.guard';
 import { AssistantController } from './assistant.controller';
 import { AssistantService } from './assistant.service';
 

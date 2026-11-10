@@ -1,30 +1,32 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '@nestjs/ai';
-import { AesGcmPayloadCodec, WorkflowsModule } from '@nestjs/workflows';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WorkflowsModule } from '@nestjs/workflows';
+import { ConfigModule } from '@nestjs/config';
 import { resolve } from 'node:path';
-import { databaseOptions } from '@llm-chatbot-nestjs/database';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import * as pg from 'pg';
+import {
+  databaseConfig,
+  buildDatabaseOptions,
+} from './database/database.config';
 import { DatabaseService } from './database/database.service';
 import { WorkflowPool } from './database/workflow-pool';
-import type {
-  BedrockConfig,
-  DatabaseConfig,
-  WorkflowConfig,
-} from '@llm-chatbot-nestjs/config';
+import { bedrockConfig, buildAiOptions } from './config/ai.config';
+import {
+  workflowsConfig,
+  buildWorkflowOptions,
+} from './config/workflows.config';
 import {
   postgresWorkflowStoreProvider,
   WORKFLOW_DATABASE_POOL,
 } from '@llm-chatbot-nestjs/workflow-storage';
-import { AssistantModule } from './assistant/assistant.module';
-import { CatalogModule } from './catalog/catalog.module';
-import { OrdersModule } from './orders/orders.module';
-import { PaymentsModule } from './payments/payments.module';
-import { RefundsModule } from './refunds/refunds.module';
+import { AssistantModule } from './apps/assistant/assistant.module';
+import { CatalogModule } from './apps/catalog/catalog.module';
+import { OrdersModule } from './apps/orders/orders.module';
+import { PaymentsModule } from './apps/payments/payments.module';
+import { RefundsModule } from './apps/refunds/refunds.module';
 import { HealthController } from './health.controller';
 import { validateEnvironment } from '@llm-chatbot-nestjs/config';
-import { SupportModule } from './support/support.module';
+import { SupportModule } from './apps/support/support.module';
 
 @Module({
   imports: [
@@ -32,54 +34,20 @@ import { SupportModule } from './support/support.module';
       isGlobal: true,
       envFilePath: resolve(__dirname, '../../../.env'),
       validate: validateEnvironment,
+      load: [databaseConfig, bedrockConfig, workflowsConfig],
     }),
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        ...databaseOptions(config.getOrThrow<DatabaseConfig>('database')),
-        driver: pg,
-      }),
+      inject: [databaseConfig.KEY],
+      useFactory: buildDatabaseOptions,
     }),
     AiModule.forRootAsync({
       isGlobal: true,
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (config: ConfigService) => {
-        const bedrock = config.getOrThrow<BedrockConfig>('bedrock');
-        process.env.AWS_REGION = bedrock.region;
-        if (bedrock.bearerToken) {
-          process.env.AWS_BEARER_TOKEN_BEDROCK = bedrock.bearerToken;
-        } else {
-          delete process.env.AWS_BEARER_TOKEN_BEDROCK;
-        }
-        const { amazonBedrock } = await import('@ai-sdk/amazon-bedrock');
-        return {
-          models: {
-            default: amazonBedrock(bedrock.modelId),
-          },
-          embeddingModels: {
-            default: amazonBedrock.embedding(bedrock.embeddingModelId),
-          },
-          defaults: bedrock.defaults,
-          embeddingDefaults: bedrock.embeddingDefaults,
-        };
-      },
+      inject: [bedrockConfig.KEY],
+      useFactory: buildAiOptions,
     }),
     WorkflowsModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const workflows = config.getOrThrow<WorkflowConfig>('workflows');
-        return {
-          worker: workflows.worker,
-          retry: workflows.retry,
-          codec: new AesGcmPayloadCodec({
-            keys: { local: workflows.encryptionKey },
-            current: 'local',
-          }),
-        };
-      },
+      inject: [workflowsConfig.KEY],
+      useFactory: buildWorkflowOptions,
     }),
     OrdersModule,
     SupportModule,

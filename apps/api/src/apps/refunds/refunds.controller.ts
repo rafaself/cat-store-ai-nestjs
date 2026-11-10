@@ -11,12 +11,12 @@ import {
   refundDecisionSchema,
   refundRequestSchema,
 } from '@llm-chatbot-nestjs/contracts';
-import { CurrentCustomer } from '../auth/current-customer.decorator';
+import { CurrentCustomer } from '../../auth/current-customer.decorator';
 import {
   DemoCustomerGuard,
   SupportApprovalGuard,
-} from '../auth/demo-auth.guard';
-import type { DemoCustomer } from '../auth/demo-auth.types';
+} from '../../auth/demo-auth.guard';
+import type { DemoCustomer } from '../../auth/demo-auth.types';
 import { RefundsService } from './refunds.service';
 
 @Controller('refunds')

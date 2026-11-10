@@ -13,7 +13,7 @@ import { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/database/database.service';
-import { PaymentsService } from '../src/payments/payments.service';
+import { PaymentsService } from '../src/apps/payments/payments.service';
 import { randomUUID } from 'node:crypto';
 
 function fakeEmbedding(text: string): number[] {
