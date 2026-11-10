@@ -28,12 +28,12 @@
         "tsConfigPath": "packages/tools/tsconfig.lib.json"
       }
     },
-    "contract": {
+    "contracts": {
       "type": "library",
-      "root": "packages/contract",
+      "root": "packages/contracts",
       "entryFile": "index",
-      "sourceRoot": "packages/contract/src",
-      "compilerOptions": { "tsConfigPath": "packages/contract/tsconfig.json" }
+      "sourceRoot": "packages/contracts/src",
+      "compilerOptions": { "tsConfigPath": "packages/contracts/tsconfig.json" }
     },
     "database": {
       "type": "library",
@@ -49,12 +49,14 @@
       "sourceRoot": "packages/shared/src",
       "compilerOptions": { "tsConfigPath": "packages/shared/tsconfig.json" }
     },
-    "storage": {
+    "workflow-storage": {
       "type": "library",
-      "root": "packages/storage",
+      "root": "packages/workflow-storage",
       "entryFile": "index",
-      "sourceRoot": "packages/storage/src",
-      "compilerOptions": { "tsConfigPath": "packages/storage/tsconfig.json" }
+      "sourceRoot": "packages/workflow-storage/src",
+      "compilerOptions": {
+        "tsConfigPath": "packages/workflow-storage/tsconfig.json"
+      }
     },
     "config": {
       "type": "library",

@@ -1,5 +1,5 @@
 {
-  "name": "@llm-chatbot-nestjs/contract",
+  "name": "@llm-chatbot-nestjs/contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,10 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@llm-chatbot-nestjs/shared": "workspace:*",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

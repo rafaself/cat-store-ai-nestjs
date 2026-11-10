@@ -12,8 +12,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "@llm-chatbot-nestjs/shared": "workspace:*",
+    "@nestjs/common": "^12.0.1",
+    "pg": "^8.23.1"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "typescript": "^6.0.2"
   }
 }

@@ -1,4 +1,5 @@
-import { toOptionalNonEmptyString } from './index';
+import { describe, expect, it } from 'vitest';
+import { toOptionalNonEmptyString } from './index.js';
 
 describe('toOptionalNonEmptyString', () => {
   it('trims non-empty values', () => {

@@ -12,6 +12,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "@llm-chatbot-nestjs/tools": "workspace:*",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^6.0.2"
