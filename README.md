@@ -131,10 +131,17 @@ runs lint, typecheck, and unit tests in parallel. Any failure blocks the commit.
 Formatting runs at commit time, not during `git add`. Run `pnpm lint-staged`
 to format staged changes manually.
 
-Start Compose before `pnpm test:e2e`; end-to-end tests use `chatbot_test` and
+Start services with `docker compose up -d --wait` before `pnpm test:e2e`;
+CI starts and waits for the same services automatically. End-to-end tests use
+`chatbot_test` and
 Nest's fake language and embedding models. Unit and e2e tests do not contact
 Bedrock or a payment provider. Formatting and static checks also run without
 external service calls.
+
+E2e defaults target the local Compose ports and the `chatbot_test` database.
+Explicit environment variables take precedence over these defaults and `.env`
+settings. For services hosted elsewhere, set `DATABASE_URL`,
+`REDIS_HOST`, `REDIS_PORT`, and `MAILPIT_URL`.
 
 ## Monorepo structure
 
