@@ -15,3 +15,11 @@ Before completing any task that modifies code:
 4. Report any checks that could not be completed.
 
 Do not skip checks or suppress failures.
+
+## Testing Integrity
+
+- Never modify, weaken, or bypass tests merely to make them pass.
+- Tests must reflect the application's domain rules and expected behavior.
+- Investigate root causes before changing implementation or tests.
+- Fix incorrect tests only when justified by domain requirements.
+- Prioritize correctness over passing the test suite.
