@@ -2,14 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderEntity } from '@cat-supplies-store/database';
+import type { CustomerOrder } from '@cat-supplies-store/contracts';
 
-export interface CustomerOrder {
-  id: string;
-  status: string;
-  totalCents: number;
-  deliveryAddress: string;
-  refundable: boolean;
-}
+export type { CustomerOrder } from '@cat-supplies-store/contracts';
 
 @Injectable()
 export class OrdersRepository {
