@@ -125,9 +125,11 @@ pnpm build
 ```
 
 Husky installs Git hooks through the `prepare` script during `pnpm install`.
-Before each commit, the hook checks formatting, then runs lint, typecheck, and
-unit tests in parallel. Any failure blocks the commit. Run `pnpm format` and
-stage the intended formatting changes when the formatting check fails.
+Before each commit, `lint-staged` formats staged files with Prettier and
+re-stages the formatting fixes while preserving unstaged edits. The hook then
+runs lint, typecheck, and unit tests in parallel. Any failure blocks the commit.
+Formatting runs at commit time, not during `git add`. Run `pnpm lint-staged`
+to format staged changes manually.
 
 Start Compose before `pnpm test:e2e`; end-to-end tests use `chatbot_test` and
 Nest's fake language and embedding models. Unit and e2e tests do not contact

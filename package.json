@@ -25,7 +25,8 @@
     "test:cov": "vitest run --coverage --config vitest.config.mts",
     "test:debug": "vitest --inspect-brk --no-file-parallelism --config vitest.config.mts",
     "test:e2e": "pnpm --filter @cat-supplies-store/api^... build && vitest run --config apps/api/vitest.config.e2e.mts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint-staged": "lint-staged"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^5.0.135",
@@ -52,6 +53,7 @@
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "oxlint": "^1.92.0",
     "oxlint-tsgolint": "^7.0.2006",
     "prettier": "^3.4.2",
@@ -64,5 +66,8 @@
     "typescript": "^6.0.2",
     "vitest": "^4.1.2",
     "webpack-node-externals": "^3.0.0"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown"
   }
 }
