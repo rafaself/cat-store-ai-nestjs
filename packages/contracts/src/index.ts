@@ -44,3 +44,8 @@ export {
   type RefundRequestResponse,
   type RefundWorkflowStatus,
 } from './schemas/refunds.schema.js';
+
+export {
+  emailClassificationSchema,
+  type EmailClassification,
+} from './schemas/email-classification.schema.js';

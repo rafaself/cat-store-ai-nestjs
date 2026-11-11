@@ -1,14 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { z } from 'zod';
+import { mailpitMessageSchema } from './mailpit-message.schema';
 import { workerConfigKey, type WorkerConfig } from '../../config/worker.config';
 import type { EmailSource } from './email-source';
 
-const messageSchema = z.object({
-  ID: z.string(),
-  Subject: z.string().default(''),
-  Text: z.string().nullable().optional(),
-  From: z.object({ Address: z.string(), Name: z.string().optional() }),
-});
 const MAX_BYTES = 2 * 1024 * 1024;
 
 @Injectable()
@@ -45,7 +39,7 @@ export class MailpitService implements EmailSource {
       await reader.cancel();
     }
 
-    const message = messageSchema.parse(
+    const message = mailpitMessageSchema.parse(
       JSON.parse(Buffer.concat(chunks).toString('utf8')),
     );
 

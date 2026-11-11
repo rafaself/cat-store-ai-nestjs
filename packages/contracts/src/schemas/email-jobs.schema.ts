@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailClassificationSchema } from './email-classification.schema.js';
 
 export const EMAIL_QUEUE = 'email';
 export const DRAFT_EMAIL_JOB = 'draft-email';
@@ -30,12 +31,7 @@ export const emailJobStatusSchema = z
       .object({
         subject: z.string(),
         sender: z.string(),
-        classification: z.object({
-          category: z.enum(['order', 'billing', 'product', 'other']),
-          orderId: z.string().nullable(),
-          urgent: z.boolean(),
-          summary: z.string(),
-        }),
+        classification: emailClassificationSchema,
         draft: z.string(),
       })
       .strict()
