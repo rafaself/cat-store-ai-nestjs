@@ -22,7 +22,7 @@ vi.mock('@ai-sdk/amazon-bedrock', () => ({
   createAmazonBedrock: mocks.create,
 }));
 
-import { buildAiOptions } from './index.js';
+import { buildAiOptions, buildEmbeddingOptions } from './index.js';
 
 describe('buildAiOptions', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -49,6 +49,14 @@ describe('buildAiOptions', () => {
     expect(options.models).toEqual({ default: mocks.textModel });
     expect(options.embeddingModels).toEqual({ default: mocks.embeddingModel });
     expect(process.env).toEqual(environment);
+  });
+
+  it('registers only embeddings in the business API', () => {
+    const config = loadBedrockConfig({});
+    const options = buildEmbeddingOptions(config);
+    expect(options.models).toBeUndefined();
+    expect(options.embeddingModels).toEqual({ default: mocks.embeddingModel });
+    expect(mocks.provider).not.toHaveBeenCalled();
   });
 
   it('passes absent credentials through without creating environment values', () => {

@@ -49,3 +49,12 @@ export {
   emailClassificationSchema,
   type EmailClassification,
 } from './schemas/email-classification.schema.js';
+
+export {
+  orderIdSchema,
+  changeAddressSchema,
+  customerIdentitySchema,
+  customerOrderSchema,
+  type CustomerOrder,
+  type ChangeAddress,
+} from './schemas/agent-operations.schema.js';
