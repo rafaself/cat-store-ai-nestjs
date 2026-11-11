@@ -12,7 +12,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { DatabaseService } from '../src/database/database.service';
+import { DataSource } from 'typeorm';
 import { PaymentsService } from '../src/apps/payments/payments.service';
 import { randomUUID } from 'node:crypto';
 
@@ -49,7 +49,7 @@ describe('Cat store API (e2e)', () => {
     ]);
     app = await createApp(fakeModel);
 
-    const database = app.get(DatabaseService);
+    const database = app.get(DataSource);
     await database.query('DELETE FROM payment_refunds');
     await database.query(
       `UPDATE payments SET refunded_cents = 0, status = 'captured'
@@ -239,27 +239,27 @@ describe('Cat store API (e2e)', () => {
     expect(completed?.journal.some((entry) => entry.kind === 'signal')).toBe(
       true,
     );
-    const database = app.get(DatabaseService);
-    const approvedPayment = await database.query<{ refunded_cents: number }>(
+    const database = app.get(DataSource);
+    const approvedPayment = await database.query<{ refunded_cents: number }[]>(
       "SELECT refunded_cents FROM payments WHERE id = 'pay_123'",
     );
-    expect(approvedPayment.rows[0]?.refunded_cents).toBe(4599);
-    const refundRows = await database.query<{ count: string }>(
+    expect(approvedPayment[0]?.refunded_cents).toBe(4599);
+    const refundRows = await database.query<{ count: string }[]>(
       "SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id = 'pay_123'",
     );
-    expect(refundRows.rows[0]?.count).toBe('1');
-    const refund = await database.query<{ idempotency_key: string }>(
+    expect(refundRows[0]?.count).toBe('1');
+    const refund = await database.query<{ idempotency_key: string }[]>(
       "SELECT idempotency_key FROM payment_refunds WHERE payment_id = 'pay_123'",
     );
     await expect(
       app
         .get(PaymentsService)
-        .refundOrder('cus_123', 'ord_123', refund.rows[0]!.idempotency_key),
+        .refundOrder('cus_123', 'ord_123', refund[0]!.idempotency_key),
     ).resolves.toMatchObject({ status: 'simulated', amountCents: 4599 });
-    const idempotentCount = await database.query<{ count: string }>(
+    const idempotentCount = await database.query<{ count: string }[]>(
       "SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id = 'pay_123'",
     );
-    expect(idempotentCount.rows[0]?.count).toBe('1');
+    expect(idempotentCount[0]?.count).toBe('1');
 
     const rejected = await request(app.getHttpServer())
       .post('/refunds')
@@ -278,14 +278,14 @@ describe('Cat store API (e2e)', () => {
     await app
       .get(WorkflowClient)
       .result(rejected.body.runId, { timeout: '5s' });
-    const rejectedPayment = await database.query<{ refunded_cents: number }>(
+    const rejectedPayment = await database.query<{ refunded_cents: number }[]>(
       "SELECT refunded_cents FROM payments WHERE id = 'pay_124'",
     );
-    expect(rejectedPayment.rows[0]?.refunded_cents).toBe(0);
+    expect(rejectedPayment[0]?.refunded_cents).toBe(0);
   }, 20_000);
 
   it('serializes concurrent refunds for the same order', async () => {
-    const database = app.get(DatabaseService);
+    const database = app.get(DataSource);
     const suffix = randomUUID();
     const paymentId = `pay-${suffix}`;
     const orderId = `ord-${suffix}`;
@@ -310,11 +310,11 @@ describe('Cat store API (e2e)', () => {
       expect(
         results.filter((result) => result.status === 'rejected'),
       ).toHaveLength(1);
-      const refunds = await database.query<{ count: string }>(
+      const refunds = await database.query<{ count: string }[]>(
         'SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id = $1',
         [paymentId],
       );
-      expect(refunds.rows[0]?.count).toBe('1');
+      expect(refunds[0]?.count).toBe('1');
     } finally {
       await database.query(
         'DELETE FROM payment_refunds WHERE payment_id = $1',

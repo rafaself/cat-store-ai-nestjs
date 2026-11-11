@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductEntity } from '@cat-supplies-store/database';
-import { RepositoryDatabase } from '../../database/repository-database';
 import type { ProductSearchResult } from '@cat-supplies-store/shared';
 
 export interface ProductToIndex {
@@ -13,14 +12,10 @@ export interface ProductToIndex {
 
 @Injectable()
 export class CatalogRepository {
-  private readonly database: RepositoryDatabase;
-
   constructor(
     @InjectRepository(ProductEntity)
     private readonly repository: Repository<ProductEntity>,
-  ) {
-    this.database = new RepositoryDatabase(this.repository.manager);
-  }
+  ) {}
 
   async findProductsToIndex(): Promise<ProductToIndex[]> {
     return this.repository.find({
@@ -37,21 +32,19 @@ export class CatalogRepository {
       throw new Error('Each product must have exactly one embedding.');
     }
     const encoded = embeddings.map(vectorLiteral);
-    await this.database.transaction(async (client) => {
+    await this.repository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(ProductEntity);
       for (const [index, product] of products.entries()) {
-        await client.query(
-          'UPDATE products SET embedding = $2::vector WHERE id = $1',
-          [product.id, encoded[index]],
-        );
+        await repository.update(product.id, { embedding: encoded[index] });
       }
     });
   }
 
   async search(embedding: number[], limit = 5): Promise<ProductSearchResult[]> {
-    const result = await this.database.query<
-      Pick<ProductEntity, 'id' | 'name' | 'description' | 'price_cents'> & {
+    const rows = await this.repository.query<
+      (Pick<ProductEntity, 'id' | 'name' | 'description' | 'price_cents'> & {
         similarity: number;
-      }
+      })[]
     >(
       `SELECT id, name, description, price_cents,
               1 - (embedding <=> $1::vector) AS similarity
@@ -59,7 +52,7 @@ export class CatalogRepository {
        ORDER BY embedding <=> $1::vector LIMIT $2`,
       [vectorLiteral(embedding), Math.max(1, Math.min(limit, 10))],
     );
-    return result.rows.map((row) => ({
+    return rows.map((row) => ({
       id: row.id,
       name: row.name,
       description: row.description,

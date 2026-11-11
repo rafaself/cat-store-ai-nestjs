@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { createMigratedDataSource } from '@cat-supplies-store/database';
 import { buildDatabaseOptions, databaseConfigKey } from './database.config';
-import { DatabaseService } from './database.service';
 
 @Module({
   imports: [
@@ -12,7 +11,5 @@ import { DatabaseService } from './database.service';
       dataSourceFactory: createMigratedDataSource,
     }),
   ],
-  providers: [DatabaseService],
-  exports: [DatabaseService],
 })
 export class DatabaseModule {}

@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaymentEntity } from '@cat-supplies-store/database';
-import { RepositoryDatabase } from '../../database/repository-database';
-import type {
+import {
+  PaymentEntity,
   OrderEntity,
   PaymentRefundEntity,
 } from '@cat-supplies-store/database';
@@ -20,44 +19,34 @@ export type RefundPersistenceResult =
 
 @Injectable()
 export class PaymentsRepository {
-  private readonly database: RepositoryDatabase;
-
   constructor(
-    @InjectRepository(PaymentEntity) repository: Repository<PaymentEntity>,
-  ) {
-    this.database = new RepositoryDatabase(repository.manager);
-  }
+    @InjectRepository(PaymentEntity)
+    private readonly repository: Repository<PaymentEntity>,
+  ) {}
 
   refundOrder(
     customerId: string,
     orderId: string,
     idempotencyKey: string,
   ): Promise<RefundPersistenceResult> {
-    return this.database.transaction(async (client) => {
-      const orderResult = await client.query<
-        Pick<
-          OrderEntity,
-          'payment_id' | 'total_cents' | 'refundable' | 'status'
-        > &
-          Pick<PaymentEntity, 'amount_cents' | 'refunded_cents'>
-      >(
-        `SELECT o.payment_id, o.total_cents, o.refundable, o.status AS status,
-                p.amount_cents, p.refunded_cents
-         FROM orders o JOIN payments p ON p.id = o.payment_id
-         WHERE o.id = $1 AND o.customer_id = $2
-         FOR UPDATE OF o, p`,
-        [orderId, customerId],
-      );
-      const order = orderResult.rows[0];
+    return this.repository.manager.transaction(async (manager) => {
+      const orders = manager.getRepository(OrderEntity);
+      const payments = manager.getRepository(PaymentEntity);
+      const refunds = manager.getRepository(PaymentRefundEntity);
+      const order = await orders.findOne({
+        where: { id: orderId, customer_id: customerId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!order) return { status: 'not_found' };
+      const payment = await payments.findOne({
+        where: { id: order.payment_id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) return { status: 'not_found' };
 
-      const previous = await client.query<
-        Pick<PaymentRefundEntity, 'payment_id' | 'amount_cents'>
-      >(
-        'SELECT payment_id, amount_cents FROM payment_refunds WHERE idempotency_key = $1',
-        [idempotencyKey],
-      );
-      const priorRefund = previous.rows[0];
+      const priorRefund = await refunds.findOneBy({
+        idempotency_key: idempotencyKey,
+      });
       if (priorRefund) {
         if (
           priorRefund.payment_id !== order.payment_id ||
@@ -78,23 +67,24 @@ export class PaymentsRepository {
       if (
         !order.refundable ||
         order.status !== 'delivered' ||
-        order.refunded_cents + order.total_cents > order.amount_cents
+        payment.refunded_cents + order.total_cents > payment.amount_cents
       ) {
         return { status: 'ineligible' };
       }
 
-      await client.query(
-        `INSERT INTO payment_refunds (idempotency_key, payment_id, amount_cents)
-         VALUES ($1, $2, $3)`,
-        [idempotencyKey, order.payment_id, order.total_cents],
-      );
-      const refundedCents = order.refunded_cents + order.total_cents;
-      await client.query(
-        `UPDATE payments SET refunded_cents = $2,
-          status = CASE WHEN $2 >= amount_cents THEN 'refunded' ELSE 'partially_refunded' END
-         WHERE id = $1`,
-        [order.payment_id, refundedCents],
-      );
+      await refunds.insert({
+        idempotency_key: idempotencyKey,
+        payment_id: payment.id,
+        amount_cents: order.total_cents,
+      });
+      const refundedCents = payment.refunded_cents + order.total_cents;
+      await payments.update(payment.id, {
+        refunded_cents: refundedCents,
+        status:
+          refundedCents >= payment.amount_cents
+            ? 'refunded'
+            : 'partially_refunded',
+      });
 
       return {
         status: 'success',

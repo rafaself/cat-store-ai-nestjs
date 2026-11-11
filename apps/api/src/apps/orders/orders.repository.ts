@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderEntity } from '@cat-supplies-store/database';
-import { RepositoryDatabase } from '../../database/repository-database';
 
 export interface CustomerOrder {
   id: string;
@@ -14,14 +13,10 @@ export interface CustomerOrder {
 
 @Injectable()
 export class OrdersRepository {
-  private readonly database: RepositoryDatabase;
-
   constructor(
     @InjectRepository(OrderEntity)
     private readonly repository: Repository<OrderEntity>,
-  ) {
-    this.database = new RepositoryDatabase(this.repository.manager);
-  }
+  ) {}
 
   async findForCustomer(
     customerId: string,
@@ -45,18 +40,24 @@ export class OrdersRepository {
     orderId: string,
     address: string,
   ): Promise<CustomerOrder | null> {
-    const result = await this.database.query<
-      Pick<
-        OrderEntity,
-        'id' | 'status' | 'total_cents' | 'delivery_address' | 'refundable'
-      >
-    >(
-      `UPDATE orders SET delivery_address = $3
-       WHERE id = $1 AND customer_id = $2 AND status IN ('pending', 'processing')
-       RETURNING id, status, total_cents, delivery_address, refundable`,
-      [orderId, customerId, address],
-    );
-    return toCustomerOrder(result.rows[0]);
+    const result = await this.repository
+      .createQueryBuilder()
+      .update()
+      .set({ delivery_address: address })
+      .where({ id: orderId, customer_id: customerId })
+      .andWhere('status IN (:...statuses)', {
+        statuses: ['pending', 'processing'],
+      })
+      .returning([
+        'id',
+        'status',
+        'total_cents',
+        'delivery_address',
+        'refundable',
+      ])
+      .execute();
+    const orders = result.raw as OrderEntity[];
+    return toCustomerOrder(orders[0]);
   }
 }
 
