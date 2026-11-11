@@ -16,6 +16,7 @@ import {
   buildWorkerDatabaseOptions,
   buildWorkerQueueOptions,
 } from './config/worker.config';
+import { SupportModule } from './apps/support/support.module';
 import { EmailModule } from './apps/email/email.module';
 
 import {
@@ -52,6 +53,7 @@ import {
     }),
     RefundExecutionModule,
     EmailModule,
+    SupportModule,
   ],
 })
 export class AppModule {}

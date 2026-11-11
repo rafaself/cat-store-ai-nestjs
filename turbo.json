@@ -13,9 +13,13 @@
       "cache": false,
       "persistent": true
     },
-    "@cat-supplies-store/worker#build": {
+    "@cat-supplies-store/agent-worker#build": {
       "dependsOn": ["^build"],
-      "outputs": ["$TURBO_ROOT$/dist/apps/worker/**"]
+      "outputs": ["$TURBO_ROOT$/dist/apps/agent-worker/**"]
+    },
+    "@cat-supplies-store/agent-api#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["$TURBO_ROOT$/dist/apps/agent-api/**"]
     }
   }
 }

@@ -1,11 +1,11 @@
 import { AgentFunction, type AgentFunctionContext } from '@nestjs/ai';
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { CatalogService } from './catalog.service';
+import { BusinessApiClient, type CustomerRequest } from './business-api.client';
 
 @Injectable()
 export class CatalogTools {
-  constructor(private readonly catalog: CatalogService) {}
+  constructor(private readonly catalog: BusinessApiClient) {}
 
   @AgentFunction({
     name: 'search-products',
@@ -14,7 +14,11 @@ export class CatalogTools {
       query: z.string().trim().min(2).max(500),
     }),
   })
-  searchProducts({ query }: { query: string }, _context: AgentFunctionContext) {
-    return this.catalog.search(query, 5);
+  searchProducts({ query }: { query: string }, context: AgentFunctionContext) {
+    return this.catalog.searchProducts(
+      query,
+      context.request as CustomerRequest | undefined,
+      context.signal,
+    );
   }
 }

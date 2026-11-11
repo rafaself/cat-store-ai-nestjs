@@ -8,8 +8,8 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule as ApiModule } from '../src/app.module';
-import { AppModule as WorkerModule } from '../../worker/src/app.module';
-import { MailpitService } from '../../worker/src/apps/email/mailpit.service';
+import { AppModule as WorkerModule } from '../../agent-worker/src/app.module';
+import { MailpitService } from '../../agent-worker/src/apps/email/mailpit.service';
 
 const mailpitUrl = process.env.MAILPIT_URL ?? 'http://127.0.0.1:18025';
 const supportToken = 'test-support-token';
@@ -35,9 +35,7 @@ describe('email jobs (e2e)', () => {
       throw new Error(`Mailpit setup failed: ${response.status}`);
     messageId = ((await response.json()) as { ID: string }).ID;
     const builder = Test.createTestingModule({ imports: [ApiModule] });
-    const fixture = await overrideModels(builder, {
-      default: new FakeModel(['unused']),
-    }).compile();
+    const fixture = await builder.compile();
     app = fixture.createNestApplication();
     await app.init();
   }, 30_000);

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "pnpm --dir ../.. exec nest build api",
-    "dev": "pnpm --dir ../.. --filter @cat-supplies-store/api^... build && pnpm --dir ../.. exec nest start api --watch"
+    "dev": "pnpm --dir ../.. --filter @cat-supplies-store/api^... build && pnpm --dir ../.. exec nest start api --watch",
+    "start": "node ../../dist/apps/api/main.js"
   },
   "dependencies": {
     "@cat-supplies-store/config": "workspace:*",

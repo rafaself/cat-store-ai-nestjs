@@ -24,7 +24,7 @@
     "test:watch": "vitest --config vitest.config.mts",
     "test:cov": "vitest run --coverage --config vitest.config.mts",
     "test:debug": "vitest --inspect-brk --no-file-parallelism --config vitest.config.mts",
-    "test:e2e": "pnpm --filter @cat-supplies-store/api^... build && vitest run --config apps/api/vitest.config.e2e.mts",
+    "test:e2e": "pnpm --filter @cat-supplies-store/api^... --filter @cat-supplies-store/agent-api^... --filter @cat-supplies-store/agent-worker^... build && vitest run --config apps/api/vitest.config.e2e.mts",
     "prepare": "husky",
     "lint-staged": "lint-staged"
   },

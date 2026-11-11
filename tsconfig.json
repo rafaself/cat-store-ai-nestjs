@@ -47,10 +47,13 @@
       "path": "./packages/ai/tsconfig.json"
     },
     {
-      "path": "./apps/worker/tsconfig.app.json"
+      "path": "./apps/agent-worker/tsconfig.app.json"
     },
     {
       "path": "./packages/refunds/tsconfig.json"
+    },
+    {
+      "path": "./apps/agent-api/tsconfig.app.json"
     }
   ]
 }

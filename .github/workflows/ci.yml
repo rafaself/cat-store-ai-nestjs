@@ -32,4 +32,5 @@ jobs:
       - name: Stop e2e services
         if: always()
         run: docker compose down --volumes
-      - run: pnpm build
+      - name: Build all four applications and shared packages
+        run: pnpm build

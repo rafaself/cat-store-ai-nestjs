@@ -73,15 +73,6 @@
         "tsConfigPath": "packages/config/tsconfig.json"
       }
     },
-    "worker": {
-      "type": "application",
-      "root": "apps/worker",
-      "entryFile": "main",
-      "sourceRoot": "apps/worker/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/worker/tsconfig.app.json"
-      }
-    },
     "ai": {
       "type": "library",
       "root": "packages/ai",
@@ -98,6 +89,24 @@
       "sourceRoot": "packages/refunds/src",
       "compilerOptions": {
         "tsConfigPath": "packages/refunds/tsconfig.json"
+      }
+    },
+    "agent-worker": {
+      "type": "application",
+      "root": "apps/agent-worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/agent-worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/agent-worker/tsconfig.app.json"
+      }
+    },
+    "agent-api": {
+      "type": "application",
+      "root": "apps/agent-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/agent-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/agent-api/tsconfig.app.json"
       }
     }
   }

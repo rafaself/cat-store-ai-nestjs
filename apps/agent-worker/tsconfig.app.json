@@ -3,7 +3,7 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "../..",
-    "outDir": "../../dist/apps/worker"
+    "outDir": "../../dist/apps/agent-worker"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"],

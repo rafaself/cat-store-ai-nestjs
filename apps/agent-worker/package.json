@@ -1,10 +1,11 @@
 {
-  "name": "@cat-supplies-store/worker",
+  "name": "@cat-supplies-store/agent-worker",
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "pnpm --dir ../.. exec nest build worker",
-    "dev": "pnpm --dir ../.. --filter @cat-supplies-store/worker^... build && pnpm --dir ../.. exec nest start worker --watch"
+    "build": "pnpm --dir ../.. exec nest build agent-worker",
+    "dev": "pnpm --dir ../.. --filter @cat-supplies-store/agent-worker^... build && pnpm --dir ../.. exec nest start agent-worker --watch",
+    "start": "node ../../dist/apps/agent-worker/main.js"
   },
   "dependencies": {
     "@cat-supplies-store/ai": "workspace:*",

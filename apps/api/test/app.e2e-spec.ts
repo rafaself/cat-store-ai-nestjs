@@ -12,7 +12,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { AppModule as WorkerModule } from '../../worker/src/app.module';
+import { AppModule as AgentModule } from '../../agent-api/src/app.module';
+import { ConfigService } from '@nestjs/config';
+import { AppModule as WorkerModule } from '../../agent-worker/src/app.module';
 import { DataSource } from 'typeorm';
 import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
@@ -35,11 +37,20 @@ function fakeEmbedding(text: string): number[] {
 describe('Cat store API (e2e)', () => {
   let app: INestApplication<App>;
   let fakeModel: FakeModel;
+  let agent: INestApplication<App>;
   let worker: TestingModule | undefined;
 
   beforeAll(async () => {
     fakeModel = new FakeModel(['Hello from the offline fake model.']);
-    app = await createApp(fakeModel);
+    app = await createApp();
+    await app.listen(0, '127.0.0.1');
+    const builder = Test.createTestingModule({ imports: [AgentModule] });
+    const fixture = await overrideModels(builder, {
+      default: fakeModel,
+    }).compile();
+    fixture.get(ConfigService).set('businessApi.url', await app.getUrl());
+    agent = fixture.createNestApplication();
+    await agent.init();
 
     const database = app.get(DataSource);
     await database.query('DELETE FROM payment_refunds');
@@ -55,6 +66,7 @@ describe('Cat store API (e2e)', () => {
 
   afterAll(async () => {
     await worker?.close();
+    await agent?.close();
     await app?.close();
   });
 
@@ -63,6 +75,21 @@ describe('Cat store API (e2e)', () => {
       .get('/health')
       .expect(200, { status: 'ok' });
     await request(app.getHttpServer())
+      .post('/assistant/chat')
+      .send({ messages: [] })
+      .expect(404);
+    await request(app.getHttpServer())
+      .get('/agent-tools/orders/ord_123')
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/agent-tools/catalog/search?q=salmon')
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/agent-tools/customer')
+      .set('Authorization', 'Bearer test-support-token')
+      .expect(401);
+
+    await request(agent.getHttpServer())
       .post('/assistant/chat')
       .send({ messages: [] })
       .expect(401);
@@ -77,7 +104,7 @@ describe('Cat store API (e2e)', () => {
   });
 
   it('rejects invalid bodies and query parameters before handling requests', async () => {
-    await request(app.getHttpServer())
+    await request(agent.getHttpServer())
       .post('/assistant/chat')
       .set('Authorization', 'Bearer test-customer-token')
       .send({ messages: [] })
@@ -103,7 +130,7 @@ describe('Cat store API (e2e)', () => {
   });
 
   it('streams a chat reply through the fake language model', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(agent.getHttpServer())
       .post('/assistant/chat')
       .set('Authorization', 'Bearer test-customer-token')
       .send({
@@ -126,39 +153,111 @@ describe('Cat store API (e2e)', () => {
     ]);
   });
 
+  it('executes a streamed model tool call through the Business API', async () => {
+    fakeModel.reply(
+      { toolCalls: [{ name: 'find-order', input: { orderId: 'ord_123' } }] },
+      'Your order has been delivered.',
+    );
+    const response = await request(agent.getHttpServer())
+      .post('/assistant/chat')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({
+        messages: [
+          {
+            id: 'tool-message',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Find my order ord_123' }],
+          },
+        ],
+      })
+      .expect(200);
+    expect(response.text).toContain('tool-output-available');
+    expect(response.text).toContain('ord_123');
+    expect(response.text).toContain('delivered');
+  });
+
   it('scopes order tools to the authenticated customer and allows eligible address changes', async () => {
     await expect(
       callTool(
-        app,
+        agent,
         'find-order',
         { orderId: 'ord_456' },
         {
-          caller: { user: { id: 'cus_123' } },
+          caller: {
+            request: {
+              headers: { authorization: 'Bearer test-customer-token' },
+            },
+          },
         },
       ),
     ).rejects.toThrow();
 
     await expect(
       callTool(
-        app,
+        agent,
         'change-address',
         {
           orderId: 'ord_125',
           address: '99 New Address, São Paulo',
         },
-        { caller: { user: { id: 'cus_123' } } },
+        {
+          caller: {
+            request: {
+              headers: { authorization: 'Bearer test-customer-token' },
+            },
+          },
+        },
       ),
     ).resolves.toMatchObject({ deliveryAddress: '99 New Address, São Paulo' });
 
     await expect(
       callTool(
-        app,
+        agent,
         'change-address',
         {
           orderId: 'ord_456',
           address: '1 Unauthorized Address, São Paulo',
         },
-        { caller: { user: { id: 'cus_123' } } },
+        {
+          caller: {
+            request: {
+              headers: { authorization: 'Bearer test-customer-token' },
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('enforces order ownership and address eligibility at the business HTTP boundary', async () => {
+    const token = 'Bearer test-customer-token';
+    await request(app.getHttpServer())
+      .get('/agent-tools/orders/ord_456')
+      .set('Authorization', token)
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch('/agent-tools/orders/ord_456/address')
+      .set('Authorization', token)
+      .send({ address: '1 Unauthorized Address, São Paulo' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch('/agent-tools/orders/ord_123/address')
+      .set('Authorization', token)
+      .send({ address: '1 Ineligible Address, São Paulo' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch('/agent-tools/orders/ord_125/address')
+      .set('Authorization', token)
+      .send({ address: 'short' })
+      .expect(400);
+    await expect(
+      callTool(
+        agent,
+        'find-order',
+        { orderId: 'ord_123' },
+        {
+          caller: { user: { id: 'cus_123' } },
+        },
       ),
     ).rejects.toThrow();
   });
@@ -184,6 +283,24 @@ describe('Cat store API (e2e)', () => {
       .query({ q: '  salmon  ' })
       .expect(200);
     expect(defaultLimit.body).toHaveLength(5);
+    await expect(
+      callTool(
+        agent,
+        'search-products',
+        { query: 'salmon for sensitive digestion' },
+        {
+          caller: {
+            request: {
+              headers: { authorization: 'Bearer test-customer-token' },
+            },
+          },
+        },
+      ),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'prod_sensitive' }),
+      ]),
+    );
   });
 
   it('waits for refund approval, issues an idempotent simulated refund, and rejects another', async () => {
@@ -234,7 +351,7 @@ describe('Cat store API (e2e)', () => {
       },
       'The refund request was rejected.',
     ]);
-    app = await createApp(new FakeModel(['API does not execute workflows.']));
+    app = await createApp();
     const persistedApprovals = await waitForApprovals(runId);
     expect(persistedApprovals).toHaveLength(1);
 
@@ -379,12 +496,12 @@ describe('Cat store API (e2e)', () => {
     }
   }
 
-  async function createApp(model: FakeModel): Promise<INestApplication<App>> {
+  async function createApp(): Promise<INestApplication<App>> {
     const embeddingModel = new FakeEmbeddingModel((call) => ({
       embeddings: call.values.map(fakeEmbedding),
     }));
     const builder = Test.createTestingModule({ imports: [AppModule] });
-    overrideEmbeddingModels(overrideModels(builder, { default: model }), {
+    overrideEmbeddingModels(builder, {
       default: embeddingModel,
     });
     const moduleFixture: TestingModule = await builder.compile();
