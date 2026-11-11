@@ -6,14 +6,18 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 export const createBedrockConfig = (config: BedrockConfig) =>
   registerAs('bedrock', () => config);
 
-export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
-  const bedrock = createAmazonBedrock({
+function createBedrockProvider(config: BedrockConfig) {
+  return createAmazonBedrock({
     region: config.region,
     apiKey: config.bearerToken,
     accessKeyId: config.accessKeyId,
     secretAccessKey: config.secretAccessKey,
     sessionToken: config.sessionToken,
   });
+}
+
+export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
+  const bedrock = createBedrockProvider(config);
   return {
     models: { default: bedrock(config.modelId) },
     embeddingModels: {
@@ -26,13 +30,7 @@ export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
 
 // The business API only registers embeddings for catalog search/indexing.
 export function buildEmbeddingOptions(config: BedrockConfig): AiModuleOptions {
-  const bedrock = createAmazonBedrock({
-    region: config.region,
-    apiKey: config.bearerToken,
-    accessKeyId: config.accessKeyId,
-    secretAccessKey: config.secretAccessKey,
-    sessionToken: config.sessionToken,
-  });
+  const bedrock = createBedrockProvider(config);
   return {
     embeddingModels: { default: bedrock.embedding(config.embeddingModelId) },
     embeddingDefaults: config.embeddingDefaults,
