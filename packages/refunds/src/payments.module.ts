@@ -1,8 +1,8 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentEntity } from '@cat-supplies-store/database';
-import { PaymentsRepository } from './payments.repository';
+import { PaymentsRepository } from './payments.repository.js';
 import { Module } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
+import { PaymentsService } from './payments.service.js';
 
 @Module({
   imports: [TypeOrmModule.forFeature([PaymentEntity])],

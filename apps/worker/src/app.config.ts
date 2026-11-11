@@ -1,7 +1,9 @@
+import { createWorkflowsConfig } from '@cat-supplies-store/workflow-storage';
 import { resolve } from 'node:path';
 import {
   readEnvironment,
   loadLoggerConfig,
+  loadWorkflowConfig,
   loadBedrockConfig,
   loadDatabaseConfig,
   loadQueueConfig,
@@ -20,6 +22,10 @@ export const workerConfig = createWorkerConfig({
   mailpit: loadMailpitConfig(environment),
 });
 
+export const workflowsConfig = createWorkflowsConfig(
+  loadWorkflowConfig(environment),
+);
+
 const logger = loadLoggerConfig(environment);
 
 export const appConfigOptions = {
@@ -27,5 +33,5 @@ export const appConfigOptions = {
   ignoreEnvFile: true,
   // Named factories use parsed settings without copying values into process.env.
   validate: () => ({}),
-  load: [bedrockConfig, workerConfig, () => ({ logger })],
+  load: [bedrockConfig, workerConfig, workflowsConfig, () => ({ logger })],
 };

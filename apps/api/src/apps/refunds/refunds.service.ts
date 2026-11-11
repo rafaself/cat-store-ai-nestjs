@@ -11,7 +11,7 @@ import {
   type RefundRequestResponse,
 } from '@cat-supplies-store/contracts';
 import { OrdersService } from '../orders/orders.service';
-import { RefundRequestWorkflow } from './refund.workflow';
+import { RefundRequestWorkflow } from '@cat-supplies-store/refunds';
 
 @Injectable()
 export class RefundsService {

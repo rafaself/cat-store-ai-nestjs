@@ -6,6 +6,8 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // Suites share the database and queue; their fake-model workers must not compete.
+    fileParallelism: false,
     root: process.cwd(),
     include: ['apps/api/test/**/*.e2e-spec.ts'],
     environment: 'node',

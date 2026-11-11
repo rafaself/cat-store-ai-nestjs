@@ -1,7 +1,7 @@
 import { AgentFunction, type AgentFunctionContext } from '@nestjs/ai';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { z } from 'zod';
-import { PaymentsService } from '../payments/payments.service';
+import { PaymentsService } from './payments.service.js';
 
 @Injectable()
 export class RefundTools {

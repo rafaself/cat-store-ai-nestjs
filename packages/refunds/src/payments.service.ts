@@ -6,7 +6,7 @@ import {
 import {
   PaymentsRepository,
   type PersistedRefund,
-} from './payments.repository';
+} from './payments.repository.js';
 
 export interface SimulatedRefund extends PersistedRefund {
   status: 'simulated';

@@ -48,6 +48,9 @@
     },
     {
       "path": "./apps/worker/tsconfig.app.json"
+    },
+    {
+      "path": "./packages/refunds/tsconfig.json"
     }
   ]
 }

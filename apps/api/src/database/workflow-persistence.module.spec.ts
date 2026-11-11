@@ -7,8 +7,10 @@ import { WORKFLOW_DATABASE_POOL } from '@cat-supplies-store/workflow-storage';
 import { loadDatabaseConfig } from '@cat-supplies-store/config';
 import { describe, expect, it, vi } from 'vitest';
 import { createDatabaseConfig } from './database.config';
-import { WorkflowPersistenceModule } from './workflow-persistence.module';
-import { WorkflowPool } from './workflow-pool';
+import {
+  WorkflowPersistenceModule,
+  WorkflowPool,
+} from '@cat-supplies-store/workflow-storage';
 
 describe('workflow persistence lifecycle', () => {
   it('shares one configured pool and stops the worker before closing it', async () => {
@@ -24,7 +26,10 @@ describe('workflow persistence lifecycle', () => {
           load: [createDatabaseConfig(config)],
         }),
         WorkflowsModule.forRoot({ worker: false, allowInMemoryStorage: true }),
-        WorkflowPersistenceModule,
+        WorkflowPersistenceModule.registerAsync({
+          inject: [createDatabaseConfig(config).KEY],
+          useFactory: () => config,
+        }),
       ],
     })
       // Exercise Nest lifecycle ordering without requiring a PostgreSQL server.

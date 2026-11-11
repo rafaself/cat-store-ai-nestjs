@@ -90,6 +90,15 @@
       "compilerOptions": {
         "tsConfigPath": "packages/ai/tsconfig.json"
       }
+    },
+    "refunds": {
+      "type": "library",
+      "root": "packages/refunds",
+      "entryFile": "index",
+      "sourceRoot": "packages/refunds/src",
+      "compilerOptions": {
+        "tsConfigPath": "packages/refunds/tsconfig.json"
+      }
     }
   }
 }

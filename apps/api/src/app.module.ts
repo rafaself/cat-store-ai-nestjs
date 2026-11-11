@@ -1,3 +1,4 @@
+import type { DatabaseConfig } from '@cat-supplies-store/config';
 import { BullModule } from '@nestjs/bullmq';
 import { buildQueueOptions } from './config/queue.config';
 import { EmailJobsModule } from './apps/email-jobs/email-jobs.module';
@@ -7,18 +8,18 @@ import { AiModule } from '@nestjs/ai';
 import { WorkflowsModule } from '@nestjs/workflows';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
-import { WorkflowPersistenceModule } from './database/workflow-persistence.module';
+import { WorkflowPersistenceModule } from '@cat-supplies-store/workflow-storage';
 import { buildAiOptions } from '@cat-supplies-store/ai';
-import { buildWorkflowOptions } from './config/workflows.config';
+import { buildWorkflowClientOptions } from '@cat-supplies-store/workflow-storage';
 import { AssistantModule } from './apps/assistant/assistant.module';
 import { CatalogModule } from './apps/catalog/catalog.module';
 import { OrdersModule } from './apps/orders/orders.module';
-import { PaymentsModule } from './apps/payments/payments.module';
 import { RefundsModule } from './apps/refunds/refunds.module';
 import { HealthController } from './health.controller';
 import { SupportModule } from './apps/support/support.module';
 import {
   appConfigOptions,
+  databaseConfig,
   bedrockConfig,
   workflowsConfig,
   queueConfig,
@@ -35,9 +36,12 @@ import {
     }),
     WorkflowsModule.forRootAsync({
       inject: [workflowsConfig.KEY],
-      useFactory: buildWorkflowOptions,
+      useFactory: buildWorkflowClientOptions,
     }),
-    WorkflowPersistenceModule,
+    WorkflowPersistenceModule.registerAsync({
+      inject: [databaseConfig.KEY],
+      useFactory: (config: DatabaseConfig) => config,
+    }),
     BullModule.forRootAsync({
       inject: [queueConfig.KEY],
       useFactory: buildQueueOptions,
@@ -45,7 +49,6 @@ import {
     EmailJobsModule,
     OrdersModule,
     SupportModule,
-    PaymentsModule,
     CatalogModule,
     RefundsModule,
     AssistantModule,

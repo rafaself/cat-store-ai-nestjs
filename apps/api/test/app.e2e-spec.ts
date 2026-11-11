@@ -12,8 +12,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
+import { AppModule as WorkerModule } from '../../worker/src/app.module';
 import { DataSource } from 'typeorm';
-import { PaymentsService } from '../src/apps/payments/payments.service';
+import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
 
 function fakeEmbedding(text: string): number[] {
@@ -34,19 +35,10 @@ function fakeEmbedding(text: string): number[] {
 describe('Cat store API (e2e)', () => {
   let app: INestApplication<App>;
   let fakeModel: FakeModel;
+  let worker: TestingModule | undefined;
 
   beforeAll(async () => {
-    fakeModel = new FakeModel([
-      'Hello from the offline fake model.',
-      {
-        toolCalls: [
-          {
-            name: 'issue-refund',
-            input: { orderId: 'ord_123', reason: 'The item arrived damaged.' },
-          },
-        ],
-      },
-    ]);
+    fakeModel = new FakeModel(['Hello from the offline fake model.']);
     app = await createApp(fakeModel);
 
     const database = app.get(DataSource);
@@ -62,6 +54,7 @@ describe('Cat store API (e2e)', () => {
   }, 30_000);
 
   afterAll(async () => {
+    await worker?.close();
     await app?.close();
   });
 
@@ -201,11 +194,32 @@ describe('Cat store API (e2e)', () => {
       .expect(201);
     const runId = started.body.runId as string;
 
+    // An API-only deployment must persist the request without executing it.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect((await app.get(WorkflowClient).getStatus(runId))?.status).toBe(
+      'pending',
+    );
+    expect(
+      await app.get(WorkflowClient).getStatus(runId, { journal: true }),
+    ).toMatchObject({ journal: [] });
+    const initialWorkerModel = new FakeModel([
+      {
+        toolCalls: [
+          {
+            name: 'issue-refund',
+            input: { orderId: 'ord_123', reason: 'The item arrived damaged.' },
+          },
+        ],
+      },
+    ]);
+    worker = await createWorker(initialWorkerModel);
     const approvals = await waitForApprovals(runId);
     expect(approvals).toHaveLength(1);
 
+    await worker.close();
+    worker = undefined;
     await app.close();
-    fakeModel = new FakeModel([
+    const resumedWorkerModel = new FakeModel([
       'The refund was approved and simulated.',
       {
         toolCalls: [
@@ -220,7 +234,7 @@ describe('Cat store API (e2e)', () => {
       },
       'The refund request was rejected.',
     ]);
-    app = await createApp(fakeModel);
+    app = await createApp(new FakeModel(['API does not execute workflows.']));
     const persistedApprovals = await waitForApprovals(runId);
     expect(persistedApprovals).toHaveLength(1);
 
@@ -231,6 +245,14 @@ describe('Cat store API (e2e)', () => {
       .set('Authorization', 'Bearer test-support-token')
       .send({ approved: true })
       .expect(201, { runId, approved: true });
+
+    const beforeResume = await app
+      .get(DataSource)
+      .query<{ refunded_cents: number }[]>(
+        "SELECT refunded_cents FROM payments WHERE id = 'pay_123'",
+      );
+    expect(beforeResume[0]?.refunded_cents).toBe(0);
+    worker = await createWorker(resumedWorkerModel);
 
     const workflows = app.get(WorkflowClient);
     await workflows.result(runId, { timeout: '5s' });
@@ -252,7 +274,7 @@ describe('Cat store API (e2e)', () => {
       "SELECT idempotency_key FROM payment_refunds WHERE payment_id = 'pay_123'",
     );
     await expect(
-      app
+      worker!
         .get(PaymentsService)
         .refundOrder('cus_123', 'ord_123', refund[0]!.idempotency_key),
     ).resolves.toMatchObject({ status: 'simulated', amountCents: 4599 });
@@ -299,7 +321,7 @@ describe('Cat store API (e2e)', () => {
     );
 
     try {
-      const payments = app.get(PaymentsService);
+      const payments = worker!.get(PaymentsService);
       const results = await Promise.allSettled([
         payments.refundOrder('cus_123', orderId, `first-${suffix}`),
         payments.refundOrder('cus_123', orderId, `second-${suffix}`),
@@ -343,6 +365,18 @@ describe('Cat store API (e2e)', () => {
     throw new Error(
       `Refund workflow ${runId} did not request approval in time.`,
     );
+  }
+
+  async function createWorker(model: FakeModel): Promise<TestingModule> {
+    const builder = Test.createTestingModule({ imports: [WorkerModule] });
+    const context = await overrideModels(builder, { default: model }).compile();
+    try {
+      await context.init();
+      return context;
+    } catch (error) {
+      await context.close();
+      throw error;
+    }
   }
 
   async function createApp(model: FakeModel): Promise<INestApplication<App>> {

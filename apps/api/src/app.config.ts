@@ -7,7 +7,7 @@ import {
 import { createBedrockConfig } from '@cat-supplies-store/ai';
 import { createDatabaseConfig } from './database/database.config';
 import { createQueueConfig } from './config/queue.config';
-import { createWorkflowsConfig } from './config/workflows.config';
+import { createWorkflowsConfig } from '@cat-supplies-store/workflow-storage';
 
 const environment = readEnvironment(resolve(__dirname, '../../../.env'));
 const config = validateEnvironment(environment);

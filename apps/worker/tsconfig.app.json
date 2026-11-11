@@ -19,6 +19,12 @@
     },
     {
       "path": "../../packages/database/tsconfig.json"
+    },
+    {
+      "path": "../../packages/refunds/tsconfig.json"
+    },
+    {
+      "path": "../../packages/workflow-storage/tsconfig.json"
     }
   ]
 }

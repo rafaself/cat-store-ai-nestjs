@@ -23,7 +23,10 @@
     "rxjs": "^7.8.1",
     "typeorm": "1.1.1",
     "zod": "^4.6.7",
-    "ioredis": "5.11.1"
+    "ioredis": "5.11.1",
+    "@cat-supplies-store/refunds": "workspace:*",
+    "@cat-supplies-store/workflow-storage": "workspace:*",
+    "@nestjs/workflows": "^0.0.5"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

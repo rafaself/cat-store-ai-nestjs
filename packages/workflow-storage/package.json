@@ -15,7 +15,9 @@
   "dependencies": {
     "@nestjs/common": "^12.0.1",
     "@nestjs/workflows": "^0.0.5",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "@cat-supplies-store/config": "workspace:*",
+    "@nestjs/config": "^12.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

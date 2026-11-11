@@ -2,8 +2,9 @@ import { Module } from '@nestjs/common';
 import {
   postgresWorkflowStoreProvider,
   WORKFLOW_DATABASE_POOL,
-} from '@cat-supplies-store/workflow-storage';
-import { WorkflowPool } from './workflow-pool';
+} from './postgres-workflow-store.provider.js';
+import { WorkflowPool } from './workflow-pool.js';
+import { ConfigurableModuleClass } from './workflow-persistence.definition.js';
 
 @Module({
   providers: [
@@ -12,4 +13,4 @@ import { WorkflowPool } from './workflow-pool';
     postgresWorkflowStoreProvider,
   ],
 })
-export class WorkflowPersistenceModule {}
+export class WorkflowPersistenceModule extends ConfigurableModuleClass {}

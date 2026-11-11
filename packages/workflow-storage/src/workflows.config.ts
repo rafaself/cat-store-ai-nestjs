@@ -15,3 +15,7 @@ export function buildWorkflowOptions(config: WorkflowConfig) {
     }),
   };
 }
+
+export function buildWorkflowClientOptions(config: WorkflowConfig) {
+  return { ...buildWorkflowOptions(config), worker: false as const };
+}

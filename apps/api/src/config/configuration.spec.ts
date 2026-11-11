@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { createDatabaseConfig } from '../database/database.config';
 import { createQueueConfig } from './queue.config';
-import { createWorkflowsConfig } from './workflows.config';
+import { createWorkflowsConfig } from '@cat-supplies-store/workflow-storage';
 
 describe('configuration without environment mutations', () => {
   it('uses file settings, gives ambient values precedence, and leaves process.env unchanged', async () => {

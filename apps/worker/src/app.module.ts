@@ -1,3 +1,10 @@
+import { WorkflowsModule } from '@nestjs/workflows';
+import { RefundExecutionModule } from '@cat-supplies-store/refunds';
+import {
+  WorkflowPersistenceModule,
+  buildWorkflowOptions,
+} from '@cat-supplies-store/workflow-storage';
+import type { WorkerConfig } from './config/worker.config';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AiModule } from '@nestjs/ai';
@@ -11,7 +18,12 @@ import {
 } from './config/worker.config';
 import { EmailModule } from './apps/email/email.module';
 
-import { appConfigOptions, bedrockConfig, workerConfig } from './app.config';
+import {
+  appConfigOptions,
+  bedrockConfig,
+  workerConfig,
+  workflowsConfig,
+} from './app.config';
 
 @Module({
   imports: [
@@ -30,6 +42,15 @@ import { appConfigOptions, bedrockConfig, workerConfig } from './app.config';
       inject: [workerConfig.KEY],
       useFactory: buildWorkerQueueOptions,
     }),
+    WorkflowsModule.forRootAsync({
+      inject: [workflowsConfig.KEY],
+      useFactory: buildWorkflowOptions,
+    }),
+    WorkflowPersistenceModule.registerAsync({
+      inject: [workerConfig.KEY],
+      useFactory: (config: WorkerConfig) => config.database,
+    }),
+    RefundExecutionModule,
     EmailModule,
   ],
 })
