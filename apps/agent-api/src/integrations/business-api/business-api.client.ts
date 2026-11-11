@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   HttpException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -18,6 +19,8 @@ export interface CustomerRequest {
 
 @Injectable()
 export class BusinessApiClient {
+  private readonly logger = new Logger(BusinessApiClient.name);
+
   constructor(private readonly config: ConfigService) {}
 
   private async request<T>(
@@ -47,13 +50,17 @@ export class BusinessApiClient {
         },
       );
       if (!response.ok) {
-        if ([400, 401, 403, 404, 429].includes(response.status)) {
-          throw new HttpException(
-            'Business operation rejected.',
-            response.status,
+        const error = [400, 401, 403, 404, 429].includes(response.status)
+          ? new HttpException('Business operation rejected.', response.status)
+          : new ServiceUnavailableException('Business API is unavailable.');
+        try {
+          await response.body?.cancel();
+        } catch {
+          this.logger.warn(
+            'Failed to release a rejected Business API response.',
           );
         }
-        throw new ServiceUnavailableException('Business API is unavailable.');
+        throw error;
       }
       return schema.parse(await response.json());
     } catch (error) {

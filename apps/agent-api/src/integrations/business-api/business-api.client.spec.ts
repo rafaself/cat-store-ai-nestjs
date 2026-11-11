@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import {
   HttpException,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,7 +21,10 @@ const client = () =>
     new ConfigService({ businessApi: { url: 'http://business-api:3000' } }),
   );
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe('BusinessApiClient', () => {
   it('forwards credentials and encoded parameters, and validates the order contract', async () => {
@@ -71,10 +75,17 @@ describe('BusinessApiClient', () => {
   it.each([401, 403, 404, 429])(
     'preserves a business rejection (%s)',
     async (status) => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue(new Response('private details', { status })),
+      const cancel = vi.fn();
+      const response = new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('private details'));
+          },
+          cancel,
+        }),
+        { status },
       );
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
       try {
         await client().findOrder('ord_123', caller);
         expect.unreachable('The request must fail');
@@ -82,9 +93,46 @@ describe('BusinessApiClient', () => {
         expect(error).toBeInstanceOf(HttpException);
         expect((error as HttpException).getStatus()).toBe(status);
         expect((error as Error).message).not.toContain('private details');
+        expect(cancel).toHaveBeenCalledTimes(1);
       }
     },
   );
+
+  it('releases a server error response without exposing its contents', async () => {
+    const cancel = vi.fn();
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(new ReadableStream({ cancel }), { status: 500 }),
+        ),
+    );
+    await expect(client().findOrder('ord_123', caller)).rejects.toThrow(
+      new ServiceUnavailableException('Business API is unavailable.'),
+    );
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves business rejections when response cleanup fails and logs only a safe warning', async () => {
+    const warning = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const response = new Response(
+      new ReadableStream({
+        cancel: () => Promise.reject(new Error('Private transport details')),
+      }),
+      { status: 404 },
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    await expect(client().findOrder('ord_123', caller)).rejects.toMatchObject({
+      status: 404,
+      message: 'Business operation rejected.',
+    });
+    expect(warning).toHaveBeenCalledWith(
+      'Failed to release a rejected Business API response.',
+    );
+  });
 
   it.each(['network', 'invalid-contract', 'server-error'])(
     'fails safely for %s',
