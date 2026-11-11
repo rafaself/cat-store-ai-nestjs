@@ -74,6 +74,19 @@ refund approval routes under `/refunds/:runId/approvals`. The Vite server proxie
 `/api/*` to the API. Chat accepts text-only conversations with up to 40 messages
 and is limited to 10 requests per minute per client IP.
 
+### Refund workflows
+
+The API persists refund requests, serves status, and records support approvals.
+It does not execute workflows. The worker runs refund workflows, calls the model,
+and issues approved simulated refunds. Requests and approval decisions remain in
+PostgreSQL while the worker is offline and resume when it returns.
+
+Both processes must use the same `DATABASE_URL` and `WORKFLOWS_ENCRYPTION_KEY`.
+The workflow names, versions, and encryption key ID remain unchanged, so existing
+pending refunds can resume after this split. Deploy compatible API and worker
+versions together. Stop old API instances that still execute workflows before
+starting the new worker to avoid mixed execution during the transition.
+
 ### Email drafting
 
 Mailpit captures test messages at SMTP `127.0.0.1:11025` and provides its web UI
@@ -162,8 +175,10 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
 - `packages/database` owns TypeORM entities, connection options, and the
   existing SQL migration. It has no Nest dependency. The API configures
   TypeORM and runs the migration at startup with the existing migration ledger.
-- `packages/workflow-storage` adapts a dedicated PostgreSQL pool to durable
-  workflow persistence.
+- `packages/workflow-storage` provides shared workflow configuration and a
+  Nest persistence module with a dedicated PostgreSQL pool.
+- `packages/refunds` provides the shared refund definition, worker execution
+  module, and payment persistence services.
 - `packages/shared` contains domain types used by both persistence and HTTP
   contracts. `packages/tools` contains framework-independent helper functions
   used by config parsing.
