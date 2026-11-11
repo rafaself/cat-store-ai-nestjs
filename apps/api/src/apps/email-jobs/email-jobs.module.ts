@@ -6,6 +6,7 @@ import { EmailDraftEntity } from '@cat-supplies-store/database';
 import { SupportApprovalGuard } from '../../auth/demo-auth.guard';
 import { EmailJobsController } from './email-jobs.controller';
 import { EmailJobsService } from './email-jobs.service';
+import { EmailJobDraftsRepository } from './email-job-drafts.repository';
 
 @Module({
   imports: [
@@ -13,6 +14,6 @@ import { EmailJobsService } from './email-jobs.service';
     TypeOrmModule.forFeature([EmailDraftEntity]),
   ],
   controllers: [EmailJobsController],
-  providers: [EmailJobsService, SupportApprovalGuard],
+  providers: [EmailJobsService, EmailJobDraftsRepository, SupportApprovalGuard],
 })
 export class EmailJobsModule {}

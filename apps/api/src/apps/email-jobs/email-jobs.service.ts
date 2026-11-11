@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
-import { InjectRepository } from '@nestjs/typeorm';
 import { createEmailJobId } from '@cat-supplies-store/contracts/email-job-id';
 import { Queue } from 'bullmq';
-import { Repository } from 'typeorm';
-import { EmailDraftEntity } from '@cat-supplies-store/database';
+import { EmailJobDraftsRepository } from './email-job-drafts.repository';
 import {
   DRAFT_EMAIL_JOB,
   EMAIL_QUEUE,
@@ -18,13 +16,12 @@ const SUPPORT_ID = 'demo-support';
 export class EmailJobsService {
   constructor(
     @InjectQueue(EMAIL_QUEUE) private readonly queue: Queue<EmailJobPayload>,
-    @InjectRepository(EmailDraftEntity)
-    private readonly drafts: Repository<EmailDraftEntity>,
+    private readonly drafts: EmailJobDraftsRepository,
   ) {}
 
   async create(messageId: string) {
     const jobId = createEmailJobId(SUPPORT_ID, messageId);
-    const existing = await this.findDraft(jobId);
+    const existing = await this.drafts.findForRequester(jobId, SUPPORT_ID);
     if (existing) return { jobId };
     const job = await this.queue.add(
       DRAFT_EMAIL_JOB,
@@ -43,7 +40,7 @@ export class EmailJobsService {
   async get(jobId: string) {
     if (!emailJobIdSchema.safeParse(jobId).success)
       throw new NotFoundException('Job not found.');
-    const result = await this.findDraft(jobId);
+    const result = await this.drafts.findForRequester(jobId, SUPPORT_ID);
     if (result) return { jobId, status: 'completed' as const, result };
     const job = await this.queue.getJob(jobId);
     if (
@@ -63,25 +60,5 @@ export class EmailJobsService {
             ? 'processing'
             : 'pending';
     return { jobId, status };
-  }
-
-  private async findDraft(jobId: string) {
-    const row = await this.drafts.findOne({
-      where: { job_id: jobId, requester_id: SUPPORT_ID },
-      select: {
-        subject: true,
-        sender: true,
-        classification: true,
-        draft: true,
-      },
-    });
-    return (
-      row && {
-        subject: row.subject,
-        sender: row.sender,
-        classification: row.classification,
-        draft: row.draft,
-      }
-    );
   }
 }
