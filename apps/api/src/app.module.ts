@@ -13,7 +13,7 @@ import {
 } from './database/database.config';
 import { DatabaseService } from './database/database.service';
 import { WorkflowPool } from './database/workflow-pool';
-import { createBedrockConfig, buildAiOptions } from '@llm-chatbot-nestjs/ai';
+import { createBedrockConfig, buildAiOptions } from '@cat-supplies-store/ai';
 import {
   createWorkflowsConfig,
   buildWorkflowOptions,
@@ -21,7 +21,7 @@ import {
 import {
   postgresWorkflowStoreProvider,
   WORKFLOW_DATABASE_POOL,
-} from '@llm-chatbot-nestjs/workflow-storage';
+} from '@cat-supplies-store/workflow-storage';
 import { AssistantModule } from './apps/assistant/assistant.module';
 import { CatalogModule } from './apps/catalog/catalog.module';
 import { OrdersModule } from './apps/orders/orders.module';
@@ -31,7 +31,7 @@ import { HealthController } from './health.controller';
 import {
   readEnvironment,
   validateEnvironment,
-} from '@llm-chatbot-nestjs/config';
+} from '@cat-supplies-store/config';
 import { SupportModule } from './apps/support/support.module';
 
 const environment = readEnvironment(resolve(__dirname, '../../../.env'));

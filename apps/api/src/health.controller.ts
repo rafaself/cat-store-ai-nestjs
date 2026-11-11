@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import {
   healthResponseSchema,
   type HealthResponse,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 
 @Controller('health')
 export class HealthController {

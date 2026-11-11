@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
-import type { ApiConfig, AuthConfig } from '@llm-chatbot-nestjs/config';
+import type { ApiConfig, AuthConfig } from '@cat-supplies-store/config';
 import type { DemoAuthenticatedRequest, DemoCustomer } from './demo-auth.types';
 
 function matchesBearerToken(

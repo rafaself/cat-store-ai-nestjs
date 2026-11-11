@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { createBedrockConfig } from '@llm-chatbot-nestjs/ai';
+import { createBedrockConfig } from '@cat-supplies-store/ai';
 import {
   readEnvironment,
   validateEnvironment,
-} from '@llm-chatbot-nestjs/config';
+} from '@cat-supplies-store/config';
 import { describe, expect, it } from 'vitest';
 import { createDatabaseConfig } from '../database/database.config';
 import { createQueueConfig } from './queue.config';

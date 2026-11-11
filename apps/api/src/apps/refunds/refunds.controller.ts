@@ -10,7 +10,7 @@ import {
 import {
   refundDecisionSchema,
   refundRequestSchema,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 import { CurrentCustomer } from '../../auth/current-customer.decorator';
 import {
   DemoCustomerGuard,

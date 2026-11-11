@@ -5,11 +5,11 @@ import {
   DRAFT_EMAIL_JOB,
   EMAIL_QUEUE,
   emailJobPayloadSchema,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 import { createHash } from 'node:crypto';
 import type { Job } from 'bullmq';
 import { Repository } from 'typeorm';
-import { EmailDraftEntity } from '@llm-chatbot-nestjs/database';
+import { EmailDraftEntity } from '@cat-supplies-store/database';
 import { EMAIL_SOURCE, type EmailSource } from './email-source';
 import { TriageService } from './triage.service';
 import { RepliesService } from './replies.service';

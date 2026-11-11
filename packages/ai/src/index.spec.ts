@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadBedrockConfig } from '@llm-chatbot-nestjs/config';
+import { loadBedrockConfig } from '@cat-supplies-store/config';
 
 const mocks = vi.hoisted(() => {
   const textModel = { kind: 'text-model' };

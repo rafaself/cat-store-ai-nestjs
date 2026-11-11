@@ -4,7 +4,7 @@ import {
   loadWorkflowConfig,
   type WorkflowConfig,
   type Environment,
-} from '@llm-chatbot-nestjs/config';
+} from '@cat-supplies-store/config';
 
 export const createWorkflowsConfig = (environment: Environment) =>
   registerAs('workflows', () => loadWorkflowConfig(environment));

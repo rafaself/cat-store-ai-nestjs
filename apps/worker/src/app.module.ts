@@ -5,9 +5,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { resolve } from 'node:path';
-import { createBedrockConfig, buildAiOptions } from '@llm-chatbot-nestjs/ai';
-import { readEnvironment } from '@llm-chatbot-nestjs/config';
-import { migrateDatabase } from '@llm-chatbot-nestjs/database';
+import { createBedrockConfig, buildAiOptions } from '@cat-supplies-store/ai';
+import { readEnvironment } from '@cat-supplies-store/config';
+import { migrateDatabase } from '@cat-supplies-store/database';
 import {
   createWorkerConfig,
   buildWorkerDatabaseOptions,

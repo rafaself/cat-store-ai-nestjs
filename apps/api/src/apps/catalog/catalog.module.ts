@@ -1,5 +1,5 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ProductEntity } from '@llm-chatbot-nestjs/database';
+import { ProductEntity } from '@cat-supplies-store/database';
 import { CatalogRepository } from './catalog.repository';
 import { Module } from '@nestjs/common';
 import { SupportApprovalGuard } from '../../auth/demo-auth.guard';

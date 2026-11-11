@@ -1,17 +1,17 @@
 {
-  "name": "@llm-chatbot-nestjs/api",
+  "name": "@cat-supplies-store/api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
     "build": "pnpm --dir ../.. exec nest build api",
-    "dev": "pnpm --dir ../.. --filter @llm-chatbot-nestjs/api^... build && pnpm --dir ../.. exec nest start api --watch"
+    "dev": "pnpm --dir ../.. --filter @cat-supplies-store/api^... build && pnpm --dir ../.. exec nest start api --watch"
   },
   "dependencies": {
-    "@llm-chatbot-nestjs/config": "workspace:*",
-    "@llm-chatbot-nestjs/contracts": "workspace:*",
-    "@llm-chatbot-nestjs/database": "workspace:*",
-    "@llm-chatbot-nestjs/shared": "workspace:*",
-    "@llm-chatbot-nestjs/workflow-storage": "workspace:*",
+    "@cat-supplies-store/config": "workspace:*",
+    "@cat-supplies-store/contracts": "workspace:*",
+    "@cat-supplies-store/database": "workspace:*",
+    "@cat-supplies-store/shared": "workspace:*",
+    "@cat-supplies-store/workflow-storage": "workspace:*",
     "@nestjs/ai": "^0.0.2",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.1.1",
@@ -27,7 +27,7 @@
     "rxjs": "^7.8.1",
     "typeorm": "1.1.1",
     "zod": "^4.6.7",
-    "@llm-chatbot-nestjs/ai": "workspace:*",
+    "@cat-supplies-store/ai": "workspace:*",
     "@nestjs/bullmq": "12.0.0",
     "bullmq": "6.5.0",
     "ioredis": "5.11.1"

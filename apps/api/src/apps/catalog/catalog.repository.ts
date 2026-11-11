@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ProductEntity } from '@llm-chatbot-nestjs/database';
+import { ProductEntity } from '@cat-supplies-store/database';
 import { RepositoryDatabase } from '../../database/repository-database';
-import type { ProductSearchResult } from '@llm-chatbot-nestjs/shared';
+import type { ProductSearchResult } from '@cat-supplies-store/shared';
 
 export interface ProductToIndex {
   id: string;

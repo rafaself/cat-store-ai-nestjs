@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { migrateDatabase } from '@llm-chatbot-nestjs/database';
+import { migrateDatabase } from '@cat-supplies-store/database';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit {

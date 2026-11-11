@@ -11,7 +11,7 @@ import {
   catalogIndexResponseSchema,
   catalogSearchQuerySchema,
   catalogSearchResponseSchema,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 import { SupportApprovalGuard } from '../../auth/demo-auth.guard';
 import { CatalogService } from './catalog.service';
 

@@ -7,7 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { createEmailJobSchema } from '@llm-chatbot-nestjs/contracts';
+import { createEmailJobSchema } from '@cat-supplies-store/contracts';
 import { SupportApprovalGuard } from '../../auth/demo-auth.guard';
 import { EmailJobsService } from './email-jobs.service';
 

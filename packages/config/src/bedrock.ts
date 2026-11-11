@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { toOptionalNonEmptyString } from '@llm-chatbot-nestjs/tools';
+import { toOptionalNonEmptyString } from '@cat-supplies-store/tools';
 import { parseEnv } from './validation.js';
 
 const bedrockEnvSchema = z

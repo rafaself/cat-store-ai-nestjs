@@ -269,22 +269,22 @@ importers:
 
   apps/api:
     dependencies:
-      '@llm-chatbot-nestjs/ai':
+      '@cat-supplies-store/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@llm-chatbot-nestjs/config':
+      '@cat-supplies-store/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@llm-chatbot-nestjs/contracts':
+      '@cat-supplies-store/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@llm-chatbot-nestjs/database':
+      '@cat-supplies-store/database':
         specifier: workspace:*
         version: link:../../packages/database
-      '@llm-chatbot-nestjs/shared':
+      '@cat-supplies-store/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@llm-chatbot-nestjs/workflow-storage':
+      '@cat-supplies-store/workflow-storage':
         specifier: workspace:*
         version: link:../../packages/workflow-storage
       '@nestjs/ai':
@@ -379,16 +379,16 @@ importers:
 
   apps/worker:
     dependencies:
-      '@llm-chatbot-nestjs/ai':
+      '@cat-supplies-store/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@llm-chatbot-nestjs/config':
+      '@cat-supplies-store/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@llm-chatbot-nestjs/contracts':
+      '@cat-supplies-store/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@llm-chatbot-nestjs/database':
+      '@cat-supplies-store/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@nestjs/ai':
@@ -446,7 +446,7 @@ importers:
       '@ai-sdk/amazon-bedrock':
         specifier: ^5.0.135
         version: 5.0.135(zod@4.6.7)
-      '@llm-chatbot-nestjs/config':
+      '@cat-supplies-store/config':
         specifier: workspace:*
         version: link:../config
       '@nestjs/ai':
@@ -465,7 +465,7 @@ importers:
 
   packages/config:
     dependencies:
-      '@llm-chatbot-nestjs/tools':
+      '@cat-supplies-store/tools':
         specifier: workspace:*
         version: link:../tools
       zod:
@@ -481,7 +481,7 @@ importers:
 
   packages/contracts:
     dependencies:
-      '@llm-chatbot-nestjs/shared':
+      '@cat-supplies-store/shared':
         specifier: workspace:*
         version: link:../shared
       zod:

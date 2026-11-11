@@ -1,4 +1,4 @@
-# llm-chatbot-nestjs
+# cat-supplies-store
 
 A cat-store support example with a React frontend, NestJS API, and Turborepo
 workspace. It demonstrates support email triage and drafting, invoice extraction,
@@ -109,9 +109,9 @@ PostgreSQL. A repeated request for the same message returns the existing draft.
 If a worker fails before saving a draft, a retry may call the model again; the
 database constraint ensures only one draft is saved for that message and identity.
 
-To start one app on its own, use `pnpm --filter @llm-chatbot-nestjs/api dev`,
-`pnpm --filter @llm-chatbot-nestjs/worker dev`, or
-`pnpm --filter @llm-chatbot-nestjs/web dev`.
+To start one app on its own, use `pnpm --filter @cat-supplies-store/api dev`,
+`pnpm --filter @cat-supplies-store/worker dev`, or
+`pnpm --filter @cat-supplies-store/web dev`.
 
 ## Testing and build
 

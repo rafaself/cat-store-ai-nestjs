@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AiService } from '@nestjs/ai';
 import { CatalogRepository } from './catalog.repository';
-import type { ProductSearchResult } from '@llm-chatbot-nestjs/shared';
+import type { ProductSearchResult } from '@cat-supplies-store/shared';
 
 @Injectable()
 export class CatalogService {

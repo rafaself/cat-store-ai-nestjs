@@ -1,7 +1,7 @@
 {
-  "name": "llm-chatbot-nestjs",
+  "name": "cat-supplies-store",
   "version": "0.0.1",
-  "description": "A minimal full-stack monorepo starter for an LLM-powered chatbot.",
+  "description": "A cat supplies store support application with an AI assistant.",
   "author": "Rafael",
   "private": true,
   "license": "MIT",
@@ -19,12 +19,12 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/api/main",
     "lint": "oxlint --type-aware .",
-    "typecheck": "tsc --build --pretty false && tsc --noEmit -p tsconfig.check.json && pnpm --filter @llm-chatbot-nestjs/web typecheck",
+    "typecheck": "tsc --build --pretty false && tsc --noEmit -p tsconfig.check.json && pnpm --filter @cat-supplies-store/web typecheck",
     "test": "vitest run --config vitest.config.mts",
     "test:watch": "vitest --config vitest.config.mts",
     "test:cov": "vitest run --coverage --config vitest.config.mts",
     "test:debug": "vitest --inspect-brk --no-file-parallelism --config vitest.config.mts",
-    "test:e2e": "pnpm --filter @llm-chatbot-nestjs/api^... build && vitest run --config apps/api/vitest.config.e2e.mts"
+    "test:e2e": "pnpm --filter @cat-supplies-store/api^... build && vitest run --config apps/api/vitest.config.e2e.mts"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^5.0.135",

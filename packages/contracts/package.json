@@ -1,5 +1,5 @@
 {
-  "name": "@llm-chatbot-nestjs/contracts",
+  "name": "@cat-supplies-store/contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@llm-chatbot-nestjs/shared": "workspace:*",
+    "@cat-supplies-store/shared": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {

@@ -4,8 +4,8 @@ import {
   loadMailpitConfig,
   loadQueueConfig,
   type Environment,
-} from '@llm-chatbot-nestjs/config';
-import { databaseOptions } from '@llm-chatbot-nestjs/database';
+} from '@cat-supplies-store/config';
+import { databaseOptions } from '@cat-supplies-store/database';
 import * as pg from 'pg';
 
 export const workerConfigKey = getConfigToken('worker');

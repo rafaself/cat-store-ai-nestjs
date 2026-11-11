@@ -4,13 +4,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
-import { EmailDraftEntity } from '@llm-chatbot-nestjs/database';
+import { EmailDraftEntity } from '@cat-supplies-store/database';
 import {
   DRAFT_EMAIL_JOB,
   EMAIL_QUEUE,
   emailJobIdSchema,
   type EmailJobPayload,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 
 const SUPPORT_ID = 'demo-support';
 

@@ -9,7 +9,7 @@ import {
   type PendingRefundApproval,
   type RefundDecisionResponse,
   type RefundRequestResponse,
-} from '@llm-chatbot-nestjs/contracts';
+} from '@cat-supplies-store/contracts';
 import { OrdersService } from '../orders/orders.service';
 import { RefundRequestWorkflow } from './refund.workflow';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@llm-chatbot-nestjs/tools",
+  "name": "@cat-supplies-store/tools",
   "version": "0.0.0",
   "private": true,
   "exports": {

@@ -3,7 +3,7 @@ import {
   loadBedrockConfig,
   type BedrockConfig,
   type Environment,
-} from '@llm-chatbot-nestjs/config';
+} from '@cat-supplies-store/config';
 import type { AiModuleOptions } from '@nestjs/ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 

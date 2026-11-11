@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import type { ApiConfig } from '@llm-chatbot-nestjs/config';
+import type { ApiConfig } from '@cat-supplies-store/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {

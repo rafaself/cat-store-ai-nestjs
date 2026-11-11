@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OrderEntity } from '@llm-chatbot-nestjs/database';
+import { OrderEntity } from '@cat-supplies-store/database';
 import { RepositoryDatabase } from '../../database/repository-database';
 
 export interface CustomerOrder {

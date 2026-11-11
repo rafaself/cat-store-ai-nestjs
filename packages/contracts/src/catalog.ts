@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ProductSearchResult } from '@llm-chatbot-nestjs/shared';
+import type { ProductSearchResult } from '@cat-supplies-store/shared';
 
 const searchTermSchema = z
   .string()

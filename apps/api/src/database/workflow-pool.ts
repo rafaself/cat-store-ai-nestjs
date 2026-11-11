@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { DatabaseConfig } from '@llm-chatbot-nestjs/config';
+import type { DatabaseConfig } from '@cat-supplies-store/config';
 import { Pool } from 'pg';
 
 @Injectable()

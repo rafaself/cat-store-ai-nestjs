@@ -42,7 +42,7 @@ export default function App() {
             <span />
           </div>
           <div className="brand-copy">
-            <p className="eyebrow">LLM Chatbot</p>
+            <p className="eyebrow">Cat Supplies Store</p>
             <h1>Assistant</h1>
           </div>
           <div className="header-actions">

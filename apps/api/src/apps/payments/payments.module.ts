@@ -1,5 +1,5 @@
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PaymentEntity } from '@llm-chatbot-nestjs/database';
+import { PaymentEntity } from '@cat-supplies-store/database';
 import { PaymentsRepository } from './payments.repository';
 import { Module } from '@nestjs/common';
 import { PaymentsService } from './payments.service';

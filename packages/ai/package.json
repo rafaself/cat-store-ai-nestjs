@@ -1,5 +1,5 @@
 {
-  "name": "@llm-chatbot-nestjs/ai",
+  "name": "@cat-supplies-store/ai",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^5.0.135",
-    "@llm-chatbot-nestjs/config": "workspace:*",
+    "@cat-supplies-store/config": "workspace:*",
     "@nestjs/ai": "^0.0.2",
     "@nestjs/config": "^12.1.1"
   },

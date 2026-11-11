@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaymentEntity } from '@llm-chatbot-nestjs/database';
+import { PaymentEntity } from '@cat-supplies-store/database';
 import { RepositoryDatabase } from '../../database/repository-database';
 import type {
   OrderEntity,
   PaymentRefundEntity,
-} from '@llm-chatbot-nestjs/database';
+} from '@cat-supplies-store/database';
 
 export interface PersistedRefund {
   paymentId: string;

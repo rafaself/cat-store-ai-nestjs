@@ -2,7 +2,7 @@ import { FakeModel, overrideModels } from '@nestjs/ai/testing';
 import { INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
-import { EMAIL_QUEUE } from '@llm-chatbot-nestjs/contracts';
+import { EMAIL_QUEUE } from '@cat-supplies-store/contracts';
 import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { DataSource } from 'typeorm';

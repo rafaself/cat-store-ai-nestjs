@@ -12,7 +12,7 @@ import {
 import { convertToModelMessages, validateUIMessages } from 'ai';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { chatRequestSchema } from '@llm-chatbot-nestjs/contracts';
+import { chatRequestSchema } from '@cat-supplies-store/contracts';
 import { DemoCustomerGuard } from '../../auth/demo-auth.guard';
 import { AssistantService } from './assistant.service';
 

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EMAIL_QUEUE } from '@llm-chatbot-nestjs/contracts';
-import { EmailDraftEntity } from '@llm-chatbot-nestjs/database';
+import { EMAIL_QUEUE } from '@cat-supplies-store/contracts';
+import { EmailDraftEntity } from '@cat-supplies-store/database';
 import { EmailProcessor } from './email.processor';
 import { MailpitService } from './mailpit.service';
 import { TriageService } from './triage.service';
