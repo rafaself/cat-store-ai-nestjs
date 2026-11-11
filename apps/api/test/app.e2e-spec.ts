@@ -313,8 +313,14 @@ describe('Cat store API (e2e)', () => {
 
     // An API-only deployment must persist the request without executing it.
     await new Promise((resolve) => setTimeout(resolve, 1200));
-    expect((await app.get(WorkflowClient).getStatus(runId))?.status).toBe(
-      'pending',
+    const pending = await app.get(WorkflowClient).getStatus(runId);
+    expect(pending).toMatchObject({
+      workflow: 'refund-request',
+      version: 1,
+      status: 'pending',
+    });
+    expect(pending!.deadline! - pending!.createdAt).toBe(
+      7 * 24 * 60 * 60 * 1000,
     );
     expect(
       await app.get(WorkflowClient).getStatus(runId, { journal: true }),

@@ -1,15 +1,18 @@
 import { AiAgents } from '@nestjs/ai/workflows';
 import { Injectable } from '@nestjs/common';
 import { Workflow, type WorkflowContext } from '@nestjs/workflows';
+import {
+  refundWorkflow,
+  type RefundWorkflowInput,
+} from './refund-workflow.contract.js';
 
-export interface RefundWorkflowInput {
-  customerId: string;
-  orderId: string;
-  reason: string;
-}
+export type { RefundWorkflowInput } from './refund-workflow.contract.js';
 
 @Injectable()
-@Workflow('refund-request', { timeout: '7d' })
+@Workflow(refundWorkflow.name, {
+  version: refundWorkflow.version,
+  timeout: refundWorkflow.timeout,
+})
 export class RefundRequestWorkflow {
   constructor(private readonly agents: AiAgents) {}
 

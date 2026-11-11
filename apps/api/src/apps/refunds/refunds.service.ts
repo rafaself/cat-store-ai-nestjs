@@ -11,7 +11,10 @@ import {
   type RefundRequestResponse,
 } from '@cat-supplies-store/contracts';
 import { OrdersService } from '../orders/orders.service';
-import { RefundRequestWorkflow } from '@cat-supplies-store/refunds';
+import {
+  refundWorkflow,
+  type RefundWorkflowInput,
+} from '@cat-supplies-store/refunds/contract';
 
 @Injectable()
 export class RefundsService {
@@ -32,9 +35,9 @@ export class RefundsService {
     }
     const id = `refund-${randomUUID()}`;
     const started = await this.workflows.start(
-      RefundRequestWorkflow,
-      { customerId, orderId, reason },
-      { id },
+      refundWorkflow.name,
+      { customerId, orderId, reason } satisfies RefundWorkflowInput,
+      { id, version: refundWorkflow.version, timeout: refundWorkflow.timeout },
     );
     return refundRequestResponseSchema.parse({
       runId: started.id,
@@ -44,7 +47,7 @@ export class RefundsService {
 
   async pendingApprovals(runId: string): Promise<PendingRefundApproval[]> {
     const instance = await this.workflows.getStatus(runId);
-    if (!instance || instance.workflow !== 'refund-request') {
+    if (!instance || instance.workflow !== refundWorkflow.name) {
       throw new NotFoundException('Refund request not found.');
     }
     return pendingRefundApprovalsResponseSchema.parse(

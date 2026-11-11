@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./contract": {
+      "types": "./dist/refund-workflow.contract.d.ts",
+      "import": "./dist/refund-workflow.contract.js"
     }
   },
   "scripts": {

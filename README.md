@@ -211,8 +211,10 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   TypeORM and runs the migration at startup with the existing migration ledger.
 - `packages/workflow-storage` provides shared workflow configuration and a
   Nest persistence module with a dedicated PostgreSQL pool.
-- `packages/refunds` provides the shared refund definition, worker execution
-  module, and payment persistence services.
+- `packages/refunds` provides the refund workflow, worker execution module,
+  and payment persistence services. Its dependency-free `/contract` entry point
+  shares the workflow name, version, timeout, and input type with the API. The
+  API starts work by name without importing the worker execution providers.
 - `packages/shared` contains domain types used by both persistence and HTTP
   contracts. `packages/tools` contains framework-independent helper functions
   used by config parsing.
