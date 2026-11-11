@@ -1,4 +1,7 @@
-export { chatRequestSchema, type ChatRequest } from './assistant.js';
+export {
+  chatRequestSchema,
+  type ChatRequest,
+} from './schemas/chat-request.schema.js';
 export {
   catalogIndexResponseSchema,
   catalogSearchQuerySchema,
@@ -7,8 +10,11 @@ export {
   type CatalogIndexResponse,
   type CatalogSearchQuery,
   type CatalogSearchResponse,
-} from './catalog.js';
-export { healthResponseSchema, type HealthResponse } from './health.js';
+} from './schemas/catalog.schema.js';
+export {
+  healthResponseSchema,
+  type HealthResponse,
+} from './schemas/health.schema.js';
 export {
   EMAIL_QUEUE,
   DRAFT_EMAIL_JOB,
@@ -19,7 +25,7 @@ export {
   emailJobAcceptedSchema,
   emailJobStatusSchema,
   type EmailJobPayload,
-} from './email-jobs.js';
+} from './schemas/email-jobs.schema.js';
 export {
   pendingRefundApprovalSchema,
   pendingRefundApprovalsResponseSchema,
@@ -33,4 +39,4 @@ export {
   type RefundRequest,
   type RefundRequestResponse,
   type RefundWorkflowStatus,
-} from './refunds.js';
+} from './schemas/refunds.schema.js';
