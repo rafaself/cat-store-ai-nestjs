@@ -3,10 +3,13 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
-import { BusinessApiClient, type CustomerRequest } from './business-api.client';
+import {
+  BusinessApiClient,
+  type CustomerRequest,
+} from '../integrations/business-api/business-api.client';
 
 @Injectable()
-export class BusinessApiGuard implements CanActivate {
+export class CustomerAuthGuard implements CanActivate {
   constructor(private readonly business: BusinessApiClient) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

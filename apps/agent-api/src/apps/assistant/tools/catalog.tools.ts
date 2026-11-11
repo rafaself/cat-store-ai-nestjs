@@ -1,7 +1,10 @@
 import { AgentFunction, type AgentFunctionContext } from '@nestjs/ai';
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
-import { BusinessApiClient, type CustomerRequest } from './business-api.client';
+import {
+  BusinessApiClient,
+  type CustomerRequest,
+} from '../../../integrations/business-api/business-api.client';
 
 @Injectable()
 export class CatalogTools {

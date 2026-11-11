@@ -2,12 +2,12 @@ import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { convertToModelMessages } from 'ai';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { BusinessApiGuard } from '../business-api.guard';
+import { CustomerAuthGuard } from '../../auth/customer-auth.guard';
 import { AssistantService } from './assistant.service';
 import { type ChatRequest, chatRequestSchema } from './assistant.contract';
 
 @Controller('assistant')
-@UseGuards(ThrottlerGuard, BusinessApiGuard)
+@UseGuards(ThrottlerGuard, CustomerAuthGuard)
 export class AssistantController {
   constructor(private readonly assistant: AssistantService) {}
 

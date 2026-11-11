@@ -5,7 +5,10 @@ import {
   orderIdSchema,
   changeAddressSchema,
 } from '@cat-supplies-store/contracts';
-import { BusinessApiClient, type CustomerRequest } from './business-api.client';
+import {
+  BusinessApiClient,
+  type CustomerRequest,
+} from '../../../integrations/business-api/business-api.client';
 
 @Injectable()
 export class OrdersTools {

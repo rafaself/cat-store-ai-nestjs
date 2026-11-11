@@ -190,6 +190,10 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   tools, HTTP streaming, disconnect cancellation, and chat rate limiting.
   Its typed HTTP client uses schemas from `packages/contracts`; it has no
   database, queue, workflow, or Business API implementation dependencies.
+  The feature lives in `src/apps/assistant`, including its tool adapters.
+  `src/integrations/business-api` owns the HTTP client and exports it through
+  `BusinessApiModule`; `src/auth` contains the customer authentication guard,
+  and `src/config` validates Agent API settings.
 - `apps/agent-worker` owns email triage/drafting, invoice extraction, and durable
   refund execution. Renaming the app does not change queue/job names, workflow
   names/versions, migration tables, encryption key IDs, or persisted state.
