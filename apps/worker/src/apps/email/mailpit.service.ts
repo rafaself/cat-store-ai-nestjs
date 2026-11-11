@@ -17,17 +17,21 @@ export class MailpitService implements EmailSource {
 
   async read(messageId: string) {
     const base = this.config.mailpit.url.replace(/\/$/, '');
+
     const response = await fetch(
       `${base}/api/v1/message/${encodeURIComponent(messageId)}`,
       {
         signal: AbortSignal.timeout(10_000),
       },
     );
+
     if (!response.ok || !response.body)
       throw new Error(`Mailpit request failed (${response.status}).`);
+
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -40,11 +44,14 @@ export class MailpitService implements EmailSource {
     } finally {
       await reader.cancel();
     }
+
     const message = messageSchema.parse(
       JSON.parse(Buffer.concat(chunks).toString('utf8')),
     );
+
     if (message.ID !== messageId || !message.Text?.trim())
       throw new Error('Mailpit message has no usable plain-text body.');
+
     return {
       id: message.ID,
       subject: message.Subject.slice(0, 500),

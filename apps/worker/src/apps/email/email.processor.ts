@@ -7,12 +7,12 @@ import {
   emailJobPayloadSchema,
 } from '@cat-supplies-store/contracts';
 import { createHash } from 'node:crypto';
-import type { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 import { EmailDraftEntity } from '@cat-supplies-store/database';
 import { EMAIL_SOURCE, type EmailSource } from './email-source';
 import { TriageService } from './triage.service';
 import { RepliesService } from './replies.service';
+import type { Job } from 'bullmq';
 
 @Processor(EMAIL_QUEUE, { concurrency: 4 })
 export class EmailProcessor extends WorkerHost {
@@ -29,18 +29,23 @@ export class EmailProcessor extends WorkerHost {
 
   async process(job: Job<unknown>): Promise<void> {
     if (job.name !== DRAFT_EMAIL_JOB) throw new Error('Unsupported email job.');
+
     const { messageId, requesterId } = emailJobPayloadSchema.parse(job.data);
     const expectedId = createHash('sha256')
       .update(requesterId)
       .update('\0')
       .update(messageId)
       .digest('hex');
+
     if (job.id !== expectedId) throw new Error('Invalid email job identity.');
+
     const existing = await this.drafts.findOne({
       where: { job_id: expectedId, requester_id: requesterId },
       select: { job_id: true },
     });
+
     if (existing) return;
+
     try {
       const message = await this.mailpit.read(messageId);
       const classification = await this.triage.triageEmail(message.text);
@@ -48,6 +53,7 @@ export class EmailProcessor extends WorkerHost {
         message.text,
         message.senderName,
       );
+
       await this.drafts.manager.query(
         `INSERT INTO email_drafts (job_id, requester_id, message_id, subject, sender, classification, draft)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (requester_id, message_id) DO NOTHING`,

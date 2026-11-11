@@ -28,6 +28,7 @@ describe('email AI services', () => {
       providers: [TriageService, RepliesService],
     });
     const module = await builder.compile();
+
     await expect(
       module
         .get(TriageService)
@@ -37,12 +38,15 @@ describe('email AI services', () => {
       orderId: 'ord_123',
       urgent: true,
     });
+
     await expect(
       module
         .get(RepliesService)
         .draftReply('My package arrived damaged.', 'Pat'),
     ).resolves.toContain('sorry');
+
     expect(model.calls).toHaveLength(2);
+
     await module.close();
   });
 });
