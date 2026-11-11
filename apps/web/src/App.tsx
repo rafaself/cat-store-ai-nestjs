@@ -3,7 +3,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 
 const transport = new DefaultChatTransport({
-  api: '/api/assistant/chat',
+  api: '/agent-api/assistant/chat',
   headers: {
     Authorization: `Bearer ${import.meta.env.VITE_DEMO_CUSTOMER_TOKEN ?? ''}`,
   },
