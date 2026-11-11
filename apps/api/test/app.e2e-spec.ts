@@ -62,7 +62,7 @@ describe('Cat store API (e2e)', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('serves health and requires demo authentication on chat', async () => {
@@ -355,7 +355,12 @@ describe('Cat store API (e2e)', () => {
     });
     const moduleFixture: TestingModule = await builder.compile();
     const application = moduleFixture.createNestApplication();
-    await application.init();
-    return application;
+    try {
+      await application.init();
+      return application;
+    } catch (error) {
+      await application.close();
+      throw error;
+    }
   }
 });
