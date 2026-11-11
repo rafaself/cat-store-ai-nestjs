@@ -3,9 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AiModule } from '@nestjs/ai';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 import { buildAiOptions } from '@cat-supplies-store/ai';
-import { migrateDatabase } from '@cat-supplies-store/database';
+import { createMigratedDataSource } from '@cat-supplies-store/database';
 import {
   buildWorkerDatabaseOptions,
   buildWorkerQueueOptions,
@@ -25,17 +24,7 @@ import { appConfigOptions, bedrockConfig, workerConfig } from './app.config';
     TypeOrmModule.forRootAsync({
       inject: [workerConfig.KEY],
       useFactory: buildWorkerDatabaseOptions,
-      dataSourceFactory: async (options) => {
-        if (!options) throw new Error('Database options are required.');
-        const dataSource = await new DataSource(options).initialize();
-        try {
-          await migrateDatabase(dataSource);
-        } catch (error) {
-          await dataSource.destroy();
-          throw error;
-        }
-        return dataSource;
-      },
+      dataSourceFactory: createMigratedDataSource,
     }),
     BullModule.forRootAsync({
       inject: [workerConfig.KEY],

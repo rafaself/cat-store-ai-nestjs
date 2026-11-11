@@ -6,16 +6,10 @@ import { APP_PIPE } from '@nestjs/core';
 import { AiModule } from '@nestjs/ai';
 import { WorkflowsModule } from '@nestjs/workflows';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { buildDatabaseOptions } from './database/database.config';
-import { DatabaseService } from './database/database.service';
-import { WorkflowPool } from './database/workflow-pool';
+import { DatabaseModule } from './database/database.module';
+import { WorkflowPersistenceModule } from './database/workflow-persistence.module';
 import { buildAiOptions } from '@cat-supplies-store/ai';
 import { buildWorkflowOptions } from './config/workflows.config';
-import {
-  postgresWorkflowStoreProvider,
-  WORKFLOW_DATABASE_POOL,
-} from '@cat-supplies-store/workflow-storage';
 import { AssistantModule } from './apps/assistant/assistant.module';
 import { CatalogModule } from './apps/catalog/catalog.module';
 import { OrdersModule } from './apps/orders/orders.module';
@@ -25,7 +19,6 @@ import { HealthController } from './health.controller';
 import { SupportModule } from './apps/support/support.module';
 import {
   appConfigOptions,
-  databaseConfig,
   bedrockConfig,
   workflowsConfig,
   queueConfig,
@@ -34,10 +27,7 @@ import {
 @Module({
   imports: [
     ConfigModule.forRoot(appConfigOptions),
-    TypeOrmModule.forRootAsync({
-      inject: [databaseConfig.KEY],
-      useFactory: buildDatabaseOptions,
-    }),
+    DatabaseModule,
     AiModule.forRootAsync({
       isGlobal: true,
       inject: [bedrockConfig.KEY],
@@ -47,6 +37,7 @@ import {
       inject: [workflowsConfig.KEY],
       useFactory: buildWorkflowOptions,
     }),
+    WorkflowPersistenceModule,
     BullModule.forRootAsync({
       inject: [queueConfig.KEY],
       useFactory: buildQueueOptions,
@@ -59,13 +50,7 @@ import {
     RefundsModule,
     AssistantModule,
   ],
-  providers: [
-    { provide: APP_PIPE, useClass: StandardSchemaValidationPipe },
-    DatabaseService,
-    WorkflowPool,
-    { provide: WORKFLOW_DATABASE_POOL, useExisting: WorkflowPool },
-    postgresWorkflowStoreProvider,
-  ],
+  providers: [{ provide: APP_PIPE, useClass: StandardSchemaValidationPipe }],
   controllers: [HealthController],
 })
 export class AppModule {}

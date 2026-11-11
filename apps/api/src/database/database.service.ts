@@ -1,14 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { migrateDatabase } from '@cat-supplies-store/database';
 
 @Injectable()
-export class DatabaseService implements OnModuleInit {
+export class DatabaseService {
   constructor(private readonly dataSource: DataSource) {}
-
-  async onModuleInit(): Promise<void> {
-    await migrateDatabase(this.dataSource);
-  }
 
   async query<Row = Record<string, unknown>>(
     sql: string,
