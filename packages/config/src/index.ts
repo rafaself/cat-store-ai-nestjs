@@ -6,3 +6,4 @@ export { loadDatabaseConfig, type DatabaseConfig } from './database.js';
 export { loadWorkflowConfig, type WorkflowConfig } from './workflows.js';
 export { loadQueueConfig, loadMailpitConfig } from './jobs.js';
 export { readEnvironment, type Environment } from './read-environment.js';
+export { loadLoggerConfig, type LoggerConfig } from './logger.js';

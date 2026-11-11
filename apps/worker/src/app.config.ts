@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import {
   readEnvironment,
+  loadLoggerConfig,
   loadBedrockConfig,
   loadDatabaseConfig,
   loadQueueConfig,
@@ -19,10 +20,12 @@ export const workerConfig = createWorkerConfig({
   mailpit: loadMailpitConfig(environment),
 });
 
+const logger = loadLoggerConfig(environment);
+
 export const appConfigOptions = {
   isGlobal: true,
   ignoreEnvFile: true,
   // Named factories use parsed settings without copying values into process.env.
   validate: () => ({}),
-  load: [bedrockConfig, workerConfig],
+  load: [bedrockConfig, workerConfig, () => ({ logger })],
 };

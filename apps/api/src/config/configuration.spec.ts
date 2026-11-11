@@ -27,6 +27,8 @@ describe('configuration without environment mutations', () => {
           'AWS_REGION=us-west-2',
           'AWS_BEARER_TOKEN_BEDROCK=file-token',
           'REDIS_PORT=17379',
+          'NODE_ENV=production',
+          'LOG_LEVEL=error',
           'WORKFLOWS_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
         ].join('\n'),
       );
@@ -58,6 +60,11 @@ describe('configuration without environment mutations', () => {
         expect(module.get(ConfigService).get('workflows.encryptionKey')).toBe(
           'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
         );
+        expect(module.get(ConfigService).get('logger')).toEqual({
+          json: true,
+          colors: false,
+          logLevels: ['error', 'fatal'],
+        });
         expect(process.env).toEqual(before);
       } finally {
         await module.close();

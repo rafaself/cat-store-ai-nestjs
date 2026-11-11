@@ -1,3 +1,4 @@
+import { loadLoggerConfig, type LoggerConfig } from './logger.js';
 import { loadApiConfig, type ApiConfig } from './api.js';
 import { loadAuthConfig, type AuthConfig } from './auth.js';
 import { loadBedrockConfig, type BedrockConfig } from './bedrock.js';
@@ -6,6 +7,7 @@ import { loadWorkflowConfig, type WorkflowConfig } from './workflows.js';
 
 export interface RuntimeConfig {
   api: ApiConfig;
+  logger: LoggerConfig;
   auth: AuthConfig;
   bedrock: BedrockConfig;
   database: DatabaseConfig;
@@ -17,6 +19,7 @@ export function validateEnvironment(
 ): RuntimeConfig {
   return {
     api: loadApiConfig(env),
+    logger: loadLoggerConfig(env),
     auth: loadAuthConfig(env),
     bedrock: loadBedrockConfig(env),
     database: loadDatabaseConfig(env),

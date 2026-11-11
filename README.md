@@ -175,3 +175,16 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   framework dependencies in its workspace manifest.
 - Root-level TypeScript, Vitest, Oxlint, and Prettier configuration is shared
   across the workspace.
+
+## Logging
+
+The API and worker use Nest's built-in console logger with shared configuration.
+Development defaults to `debug`, tests to `warn`, and production to `log`.
+Production (`NODE_ENV=production`) emits JSON without colors; development and
+tests use readable console output.
+
+Set `LOG_LEVEL` to `verbose`, `debug`, `log`, `warn`, `error`, or `fatal` to
+override the minimum level. Messages at that level and higher severity are
+enabled; `log` is Nest's informational level. Existing contextual loggers use
+the same application configuration. No log files or external log service are
+configured.

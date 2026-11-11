@@ -51,6 +51,10 @@ describe('validateEnvironment', () => {
       validateEnvironment({ WORKFLOWS_ENCRYPTION_KEY: workflowKey }),
     ).toEqual({
       api: { environment: 'development', port: 3000 },
+      logger: {
+        json: false,
+        logLevels: ['debug', 'log', 'warn', 'error', 'fatal'],
+      },
       auth: { demoCustomerToken: undefined, supportApprovalToken: undefined },
       bedrock: {
         region: 'us-east-1',
