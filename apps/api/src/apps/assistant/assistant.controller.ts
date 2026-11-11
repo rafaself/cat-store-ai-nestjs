@@ -1,5 +1,5 @@
 import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { convertToModelMessages, safeValidateUIMessages } from 'ai';
+import { convertToModelMessages } from 'ai';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { DemoCustomerGuard } from '../../auth/demo-auth.guard';

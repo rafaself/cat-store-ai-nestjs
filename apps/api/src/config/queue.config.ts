@@ -1,8 +1,9 @@
 import { registerAs } from '@nestjs/config';
-import { loadQueueConfig, type Environment } from '@cat-supplies-store/config';
+import { loadQueueConfig } from '@cat-supplies-store/config';
 
-export const createQueueConfig = (environment: Environment) =>
-  registerAs('queue', () => loadQueueConfig(environment));
+export const createQueueConfig = (config: ReturnType<typeof loadQueueConfig>) =>
+  registerAs('queue', () => config);
+
 export function buildQueueOptions(config: ReturnType<typeof loadQueueConfig>) {
   return {
     connection: {

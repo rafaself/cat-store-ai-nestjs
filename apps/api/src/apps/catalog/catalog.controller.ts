@@ -1,16 +1,10 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import {
   catalogIndexResponseSchema,
   catalogSearchQuerySchema,
   catalogSearchResponseSchema,
+  type CatalogSearchQuery,
 } from '@cat-supplies-store/contracts';
 import { SupportApprovalGuard } from '../../auth/demo-auth.guard';
 import { CatalogService } from './catalog.service';
@@ -21,21 +15,14 @@ export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}
 
   @Get('search')
-  async search(@Query('q') query?: string, @Query('limit') rawLimit?: string) {
-    const parsed = catalogSearchQuerySchema.safeParse({
-      q: query,
-      limit: rawLimit,
-    });
-    if (!parsed.success && parsed.error.issues[0]?.path[0] === 'q') {
-      throw new BadRequestException(
-        'Provide a search query of at most 500 characters.',
-      );
-    }
-    if (!parsed.success) {
-      throw new BadRequestException('Limit must be an integer from 1 to 10.');
-    }
+  async search(
+    @Query('q', { schema: catalogSearchQuerySchema.shape.q })
+    query: CatalogSearchQuery['q'],
+    @Query('limit', { schema: catalogSearchQuerySchema.shape.limit })
+    limit: CatalogSearchQuery['limit'],
+  ) {
     return catalogSearchResponseSchema.parse(
-      await this.catalog.search(parsed.data.q, parsed.data.limit),
+      await this.catalog.search(query, limit),
     );
   }
 

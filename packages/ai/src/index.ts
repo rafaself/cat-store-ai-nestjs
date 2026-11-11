@@ -1,14 +1,10 @@
 import { registerAs } from '@nestjs/config';
-import {
-  loadBedrockConfig,
-  type BedrockConfig,
-  type Environment,
-} from '@cat-supplies-store/config';
+import { type BedrockConfig } from '@cat-supplies-store/config';
 import type { AiModuleOptions } from '@nestjs/ai';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 
-export const createBedrockConfig = (environment: Environment) =>
-  registerAs('bedrock', () => loadBedrockConfig(environment));
+export const createBedrockConfig = (config: BedrockConfig) =>
+  registerAs('bedrock', () => config);
 
 export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
   const bedrock = createAmazonBedrock({

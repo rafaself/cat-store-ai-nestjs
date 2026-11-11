@@ -11,10 +11,12 @@ export {
   type CatalogSearchQuery,
   type CatalogSearchResponse,
 } from './schemas/catalog.schema.js';
+
 export {
   healthResponseSchema,
   type HealthResponse,
 } from './schemas/health.schema.js';
+
 export {
   EMAIL_QUEUE,
   DRAFT_EMAIL_JOB,
@@ -24,8 +26,10 @@ export {
   emailJobIdSchema,
   emailJobAcceptedSchema,
   emailJobStatusSchema,
+  type CreateEmailJob,
   type EmailJobPayload,
 } from './schemas/email-jobs.schema.js';
+
 export {
   pendingRefundApprovalSchema,
   pendingRefundApprovalsResponseSchema,

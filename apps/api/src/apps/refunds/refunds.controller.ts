@@ -1,15 +1,9 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   refundDecisionSchema,
   refundRequestSchema,
+  type RefundDecision,
+  type RefundRequest,
 } from '@cat-supplies-store/contracts';
 import { CurrentCustomer } from '../../auth/current-customer.decorator';
 import {
@@ -25,16 +19,11 @@ export class RefundsController {
 
   @Post()
   @UseGuards(DemoCustomerGuard)
-  request(@CurrentCustomer() customer: DemoCustomer, @Body() body: unknown) {
-    const input = refundRequestSchema.safeParse(body);
-    if (!input.success) {
-      throw new BadRequestException('Provide an order id and refund reason.');
-    }
-    return this.refunds.requestRefund(
-      customer.id,
-      input.data.orderId,
-      input.data.reason,
-    );
+  request(
+    @CurrentCustomer() customer: DemoCustomer,
+    @Body({ schema: refundRequestSchema }) input: RefundRequest,
+  ) {
+    return this.refunds.requestRefund(customer.id, input.orderId, input.reason);
   }
 
   @Get(':runId/approvals')
@@ -48,19 +37,8 @@ export class RefundsController {
   decide(
     @Param('runId') runId: string,
     @Param('key') key: string,
-    @Body() body: unknown,
+    @Body({ schema: refundDecisionSchema }) input: RefundDecision,
   ) {
-    const input = refundDecisionSchema.safeParse(body);
-    if (!input.success || (!input.data.approved && !input.data.reason)) {
-      throw new BadRequestException(
-        'Provide a decision and a reason when rejecting a refund.',
-      );
-    }
-    return this.refunds.decide(
-      runId,
-      key,
-      input.data.approved,
-      input.data.reason ?? '',
-    );
+    return this.refunds.decide(runId, key, input.approved, input.reason ?? '');
   }
 }

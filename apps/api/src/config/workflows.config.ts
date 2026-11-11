@@ -1,13 +1,9 @@
 import { registerAs } from '@nestjs/config';
 import { AesGcmPayloadCodec } from '@nestjs/workflows';
-import {
-  loadWorkflowConfig,
-  type WorkflowConfig,
-  type Environment,
-} from '@cat-supplies-store/config';
+import { type WorkflowConfig } from '@cat-supplies-store/config';
 
-export const createWorkflowsConfig = (environment: Environment) =>
-  registerAs('workflows', () => loadWorkflowConfig(environment));
+export const createWorkflowsConfig = (config: WorkflowConfig) =>
+  registerAs('workflows', () => config);
 
 export function buildWorkflowOptions(config: WorkflowConfig) {
   return {

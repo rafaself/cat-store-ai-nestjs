@@ -83,6 +83,32 @@ describe('Cat store API (e2e)', () => {
       .expect(401);
   });
 
+  it('rejects invalid bodies and query parameters before handling requests', async () => {
+    await request(app.getHttpServer())
+      .post('/assistant/chat')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({ messages: [] })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/refunds')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({ orderId: 'ord_123', reason: '  ' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/refunds/unknown/approvals/key')
+      .set('Authorization', 'Bearer test-support-token')
+      .send({ approved: false, reason: '  ' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/catalog/search')
+      .query({ q: '  ' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/catalog/search')
+      .query({ q: 'food', limit: '11' })
+      .expect(400);
+  });
+
   it('streams a chat reply through the fake language model', async () => {
     const response = await request(app.getHttpServer())
       .post('/assistant/chat')
@@ -158,6 +184,13 @@ describe('Cat store API (e2e)', () => {
       id: 'prod_sensitive',
       name: 'Sensitive Stomach Salmon',
     });
+    expect(result.body).toHaveLength(3);
+
+    const defaultLimit = await request(app.getHttpServer())
+      .get('/catalog/search')
+      .query({ q: '  salmon  ' })
+      .expect(200);
+    expect(defaultLimit.body).toHaveLength(5);
   });
 
   it('waits for refund approval, issues an idempotent simulated refund, and rejects another', async () => {

@@ -7,6 +7,7 @@ import { createBedrockConfig } from '@cat-supplies-store/ai';
 import {
   readEnvironment,
   validateEnvironment,
+  loadQueueConfig,
 } from '@cat-supplies-store/config';
 import { describe, expect, it } from 'vitest';
 import { createDatabaseConfig } from '../database/database.config';
@@ -30,16 +31,17 @@ describe('configuration without environment mutations', () => {
         ].join('\n'),
       );
       const environment = readEnvironment(envFile, { AWS_REGION: 'eu-west-1' });
-      const database = createDatabaseConfig(environment);
-      const bedrock = createBedrockConfig(environment);
-      const queue = createQueueConfig(environment);
-      const workflows = createWorkflowsConfig(environment);
+      const config = validateEnvironment(environment);
+      const database = createDatabaseConfig(config.database);
+      const bedrock = createBedrockConfig(config.bedrock);
+      const queue = createQueueConfig(loadQueueConfig(environment));
+      const workflows = createWorkflowsConfig(config.workflows);
       const module = await Test.createTestingModule({
         imports: [
           ConfigModule.forRoot({
             isGlobal: true,
             ignoreEnvFile: true,
-            validate: () => validateEnvironment(environment),
+            validate: () => config,
             load: [database, bedrock, queue, workflows],
           }),
         ],

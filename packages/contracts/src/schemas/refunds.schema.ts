@@ -12,7 +12,11 @@ export const refundDecisionSchema = z
     approved: z.boolean(),
     reason: z.string().trim().max(500).optional(),
   })
-  .strict();
+  .strict()
+  .refine(({ approved, reason }) => approved || Boolean(reason), {
+    path: ['reason'],
+    error: 'A reason is required when rejecting a refund.',
+  });
 
 export const refundWorkflowStatusSchema = z.enum([
   'pending',
