@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHash } from 'node:crypto';
+import { createEmailJobId } from '@cat-supplies-store/contracts/email-job-id';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { EmailDraftEntity } from '@cat-supplies-store/database';
@@ -23,11 +23,7 @@ export class EmailJobsService {
   ) {}
 
   async create(messageId: string) {
-    const jobId = createHash('sha256')
-      .update(SUPPORT_ID)
-      .update('\0')
-      .update(messageId)
-      .digest('hex');
+    const jobId = createEmailJobId(SUPPORT_ID, messageId);
     const existing = await this.findDraft(jobId);
     if (existing) return { jobId };
     const job = await this.queue.add(

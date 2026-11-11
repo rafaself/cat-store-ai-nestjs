@@ -203,7 +203,9 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   register the existing AI configuration.
 - `packages/config` provides typed API, database, Bedrock, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP
-  boundary.
+  boundary. Its Node-only `@cat-supplies-store/contracts/email-job-id` entry
+  point defines the stable persisted email job identity used by both producer
+  and worker, keeping Node crypto out of the browser-safe schema entry point.
 - `packages/database` owns TypeORM entities, connection options, and the
   existing SQL migration. It has no Nest dependency. The API configures
   TypeORM and runs the migration at startup with the existing migration ledger.

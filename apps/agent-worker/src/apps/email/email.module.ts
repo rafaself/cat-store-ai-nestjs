@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EMAIL_QUEUE } from '@cat-supplies-store/contracts';
 import { EmailDraftEntity } from '@cat-supplies-store/database';
+import { EmailDraftsRepository } from './email-drafts.repository';
 import { EmailProcessor } from './email.processor';
 import { MailpitService } from './mailpit.service';
 import { TriageService } from './triage.service';
@@ -16,6 +17,7 @@ import { EMAIL_SOURCE } from './email-source';
   ],
   providers: [
     EmailProcessor,
+    EmailDraftsRepository,
     MailpitService,
     { provide: EMAIL_SOURCE, useExisting: MailpitService },
     TriageService,

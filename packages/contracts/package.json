@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./email-job-id": {
+      "types": "./dist/email-job-id.d.ts",
+      "import": "./dist/email-job-id.js"
     }
   },
   "scripts": {
