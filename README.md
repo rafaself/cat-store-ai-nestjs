@@ -124,6 +124,11 @@ pnpm test:e2e
 pnpm build
 ```
 
+Husky installs Git hooks through the `prepare` script during `pnpm install`.
+Before each commit, the hook checks formatting, then runs lint, typecheck, and
+unit tests in parallel. Any failure blocks the commit. Run `pnpm format` and
+stage the intended formatting changes when the formatting check fails.
+
 Start Compose before `pnpm test:e2e`; end-to-end tests use `chatbot_test` and
 Nest's fake language and embedding models. Unit and e2e tests do not contact
 Bedrock or a payment provider. Formatting and static checks also run without

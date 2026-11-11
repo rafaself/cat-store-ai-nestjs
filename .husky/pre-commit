@@ -1,0 +1,14 @@
+pnpm format:check || exit 1
+
+pnpm lint &
+lint_pid=$!
+pnpm typecheck &
+typecheck_pid=$!
+pnpm test &
+test_pid=$!
+
+status=0
+wait "$lint_pid" || status=1
+wait "$typecheck_pid" || status=1
+wait "$test_pid" || status=1
+exit "$status"
