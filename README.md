@@ -1,6 +1,6 @@
 # cat-supplies-store
 
-A cat-store support example with a React frontend, NestJS API, and Turborepo
+A cat-store support example with a React frontend, separate NestJS business/agent APIs, and Turborepo
 workspace. It demonstrates support email triage and drafting, invoice extraction,
 customer-scoped order tools, durable refund approvals, and product semantic
 search. Text generation uses GPT-6 Luna through Amazon Bedrock; product vectors
@@ -24,10 +24,10 @@ pnpm install
 cp .env.example .env
 ```
 
-The API and worker read `.env` into their configuration without changing
+The APIs and Agent Worker read `.env` into their configuration without changing
 `process.env`. Values already present in the process environment take precedence.
 
-The API and worker share the Nest AI text model `default`, configured through
+The Agent API and Agent Worker share the Nest AI text model `default`, configured through
 `createAmazonBedrock` with `us.openai.gpt-6-luna`. `AWS_REGION` defaults to `us-east-1`.
 The embedding registry's `default` model is Amazon Titan Text Embeddings v2,
 which returns 1024-dimensional vectors. Set `AWS_BEARER_TOKEN_BEDROCK` in
@@ -66,13 +66,37 @@ provider integration.
 pnpm dev
 ```
 
-This starts the API, worker, and React frontend together. The API listens on port `3000`
-by default. It serves `GET /health`, authenticated streaming
-`POST /assistant/chat`, public `GET /catalog/search?q=...`, support-only
+This starts all four applications. The Business API listens on `PORT` (default
+`3000`), and the Agent API on `AGENT_API_PORT` (default `3001`). Both expose
+`GET /health`. The Agent API serves authenticated streaming `POST /assistant/chat`.
+The Business API serves public `GET /catalog/search?q=...`, support-only
 `POST /catalog/index`, customer-authenticated `POST /refunds`, and support-only
 refund approval routes under `/refunds/:runId/approvals`. The Vite server proxies
-`/api/*` to the API. Chat accepts text-only conversations with up to 40 messages
+`/api/*` to the Business API and `/agent-api/*` to the Agent API. Chat accepts text-only conversations with up to 40 messages
 and is limited to 10 requests per minute per client IP.
+
+### Agent-to-business boundary
+
+Set `BUSINESS_API_URL` on the Agent API to the reachable Business API origin
+(default `http://127.0.0.1:3000`). Agent API does not need database, Redis,
+Mailpit, workflow encryption, or demo token configuration. It validates chat
+credentials through `GET /agent-tools/customer` before starting a model call.
+The typed client forwards the original Authorization header to the Business API;
+it never sends a customer ID selected by the model.
+
+Protected Business API interfaces are `GET /agent-tools/orders/:orderId`,
+`PATCH /agent-tools/orders/:orderId/address`, and
+`GET /agent-tools/catalog/search?q=...&limit=...`. The Business API validates
+inputs, derives customer identity, checks ownership, and enforces eligible
+order statuses on address updates. The existing public catalog routes remain
+available. HTTP failures fail closed and do not expose upstream response bodies.
+
+For independent production builds, run `pnpm --filter <package>... build`, then
+`pnpm --filter <package> start` for any Nest application. The React app supports
+`pnpm --filter @cat-supplies-store/web build` and `preview`. Configure your reverse
+proxy with the same `/api` and `/agent-api` routes used in development; the
+Vite proxy applies only during development. Use compatible contract versions and
+protect transport between applications when deploying to separate hosts.
 
 ### Refund workflows
 
@@ -123,7 +147,8 @@ If a worker fails before saving a draft, a retry may call the model again; the
 database constraint ensures only one draft is saved for that message and identity.
 
 To start one app on its own, use `pnpm --filter @cat-supplies-store/api dev`,
-`pnpm --filter @cat-supplies-store/worker dev`, or
+`pnpm --filter @cat-supplies-store/agent-api dev`,
+`pnpm --filter @cat-supplies-store/agent-worker dev`, or
 `pnpm --filter @cat-supplies-store/web dev`.
 
 ## Testing and build
@@ -158,17 +183,20 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
 
 ## Monorepo structure
 
-- `apps/api` contains the NestJS application, Bedrock models, assistant and
-  catalog routes, support/order/refund modules, health route, and unit/e2e
-  tests. Its feature modules inject TypeORM repositories and contain the
-  PostgreSQL queries used for catalog, order, and payment operations. Feature
-  modules live in `apps/api/src/apps`; database integration lives in
-  `apps/api/src/database`.
+- `apps/api` owns business logic, authorization, catalog embeddings, persistence,
+  and HTTP routes for refunds, approvals, email jobs, and catalog operations.
+  It has no interactive assistant or language model registration.
+- `apps/agent-api` owns the assistant, language model integration, three chat
+  tools, HTTP streaming, disconnect cancellation, and chat rate limiting.
+  Its typed HTTP client uses schemas from `packages/contracts`; it has no
+  database, queue, workflow, or Business API implementation dependencies.
+- `apps/agent-worker` owns email triage/drafting, invoice extraction, and durable
+  refund execution. Renaming the app does not change queue/job names, workflow
+  names/versions, migration tables, encryption key IDs, or persisted state.
 - `apps/web` contains the React chat interface, built and served with Vite.
-- `apps/worker` processes queued jobs in feature modules; its first module reads
-  Mailpit messages and generates email drafts.
-- `packages/ai` provides the shared Nest AI and Bedrock configuration used by
-  the API and worker.
+- `packages/ai` provides reusable Bedrock setup. The Business API registers only
+  the embedding model for catalog search/indexing; Agent API and Agent Worker
+  register the existing AI configuration.
 - `packages/config` provides typed API, database, Bedrock, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP
   boundary.
@@ -193,7 +221,7 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
 
 ## Logging
 
-The API and worker use Nest's built-in console logger with shared configuration.
+The APIs and Agent Worker use Nest's built-in console logger with shared configuration.
 Development defaults to `debug`, tests to `warn`, and production to `log`.
 Production (`NODE_ENV=production`) emits JSON without colors; development and
 tests use readable console output.
