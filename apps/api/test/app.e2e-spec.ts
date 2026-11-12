@@ -18,6 +18,7 @@ import { AppModule as WorkerModule } from '../../agent-worker/src/app.module';
 import { DataSource } from 'typeorm';
 import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
+import { readUIMessageStream, type UIMessage, type UIMessageChunk } from 'ai';
 
 function fakeEmbedding(text: string): number[] {
   const vector = Array.from({ length: 1024 }, () => 0);
@@ -174,6 +175,74 @@ describe('Cat store API (e2e)', () => {
     expect(response.text).toContain('tool-output-available');
     expect(response.text).toContain('ord_123');
     expect(response.text).toContain('delivered');
+
+    // Reconstruct the same UIMessage the browser stores from the SSE stream.
+    const chunks = response.text
+      .split('\n')
+      .filter((line) => line.startsWith('data: ') && line !== 'data: [DONE]')
+      .map((line) => JSON.parse(line.slice(6)) as UIMessageChunk);
+    let assistantMessage: UIMessage | undefined;
+    for await (const message of readUIMessageStream({
+      message: { id: 'assistant-reply', role: 'assistant', parts: [] },
+      stream: new ReadableStream<UIMessageChunk>({
+        start(controller) {
+          chunks.forEach((chunk) => controller.enqueue(chunk));
+          controller.close();
+        },
+      }),
+      terminateOnError: true,
+    })) {
+      assistantMessage = message;
+    }
+    expect(assistantMessage?.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'step-start' }),
+        expect.objectContaining({
+          type: 'tool-find-order',
+          state: 'output-available',
+          input: { orderId: 'ord_123' },
+          output: expect.objectContaining({ id: 'ord_123' }),
+        }),
+      ]),
+    );
+    fakeModel.reply('It was delivered to your demo address.');
+    const followUp = await request(agent.getHttpServer())
+      .post('/assistant/chat')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({
+        messages: [
+          {
+            id: 'tool-message',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Find my order ord_123' }],
+          },
+          assistantMessage,
+          {
+            id: 'follow-up',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Where was it delivered?' }],
+          },
+        ],
+      })
+      .expect(200);
+    expect(followUp.text).toContain('"delta":"address."');
+    expect(fakeModel.lastCall?.lastUserMessage).toBe('Where was it delivered?');
+    expect(fakeModel.lastCall?.options.prompt).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'tool',
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'tool-result',
+              toolName: 'find-order',
+              output: expect.objectContaining({
+                value: expect.objectContaining({ id: 'ord_123' }),
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    );
   });
 
   it('scopes order tools to the authenticated customer and allows eligible address changes', async () => {
