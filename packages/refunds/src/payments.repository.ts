@@ -65,6 +65,7 @@ export class PaymentsRepository {
       }
 
       if (
+        (await refunds.existsBy({ payment_id: payment.id })) ||
         !order.refundable ||
         order.status !== 'delivered' ||
         payment.refunded_cents + order.total_cents > payment.amount_cents

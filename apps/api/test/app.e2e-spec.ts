@@ -5,7 +5,7 @@ import {
   overrideEmbeddingModels,
   overrideModels,
 } from '@nestjs/ai/testing';
-import { INestApplication } from '@nestjs/common';
+import { ConflictException, INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkflowClient } from '@nestjs/workflows';
 import request from 'supertest';
@@ -770,46 +770,98 @@ describe('Cat store API (e2e)', () => {
     expect(rejectedPayment[0]?.refunded_cents).toBe(0);
   }, 20_000);
 
-  it('serializes concurrent refunds for the same order', async () => {
-    const database = app.get(DataSource);
-    const suffix = randomUUID();
-    const paymentId = `pay-${suffix}`;
-    const orderId = `ord-${suffix}`;
-    await database.query(
-      "INSERT INTO payments (id, amount_cents, status) VALUES ($1, 1500, 'captured')",
-      [paymentId],
-    );
-    await database.query(
-      "INSERT INTO orders (id, customer_id, payment_id, status, total_cents, delivery_address, refundable) VALUES ($1, 'cus_123', $2, 'delivered', 1500, 'Test address', true)",
-      [orderId, paymentId],
-    );
-
-    try {
-      const payments = worker!.get(PaymentsService);
-      const results = await Promise.allSettled([
-        payments.refundOrder('cus_123', orderId, `first-${suffix}`),
-        payments.refundOrder('cus_123', orderId, `second-${suffix}`),
-      ]);
-      expect(
-        results.filter((result) => result.status === 'fulfilled'),
-      ).toHaveLength(1);
-      expect(
-        results.filter((result) => result.status === 'rejected'),
-      ).toHaveLength(1);
-      const refunds = await database.query<{ count: string }[]>(
-        'SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id = $1',
-        [paymentId],
-      );
-      expect(refunds[0]?.count).toBe('1');
-    } finally {
+  it.each(['sequential', 'concurrent'] as const)(
+    'prevents duplicate full refunds with different keys (%s)',
+    async (mode) => {
+      const database = app.get(DataSource);
+      const suffix = randomUUID();
+      const paymentId = `pay-${suffix}`;
+      const orderId = `ord-${suffix}`;
       await database.query(
-        'DELETE FROM payment_refunds WHERE payment_id = $1',
+        // Enough balance for two order-sized refunds: balance checks alone must not authorize a second one.
+        "INSERT INTO payments (id, amount_cents, status) VALUES ($1, 3000, 'captured')",
         [paymentId],
       );
-      await database.query('DELETE FROM orders WHERE id = $1', [orderId]);
-      await database.query('DELETE FROM payments WHERE id = $1', [paymentId]);
-    }
-  });
+      await database.query(
+        "INSERT INTO orders (id, customer_id, payment_id, status, total_cents, delivery_address, refundable) VALUES ($1, 'cus_123', $2, 'delivered', 1500, 'Test address', true)",
+        [orderId, paymentId],
+      );
+
+      try {
+        const payments = worker!.get(PaymentsService);
+        const first = () =>
+          payments.refundOrder('cus_123', orderId, `first-${suffix}`);
+        const second = () =>
+          payments.refundOrder('cus_123', orderId, `second-${suffix}`);
+        const results =
+          mode === 'concurrent'
+            ? await Promise.allSettled([first(), second()])
+            : [
+                ...(await Promise.allSettled([first()])),
+                ...(await Promise.allSettled([second()])),
+              ];
+        expect(
+          results.filter((result) => result.status === 'fulfilled'),
+        ).toHaveLength(1);
+        expect(
+          results.filter((result) => result.status === 'rejected'),
+        ).toHaveLength(1);
+        const failure = results.find((result) => result.status === 'rejected');
+        expect(failure?.reason).toBeInstanceOf(ConflictException);
+        const success = results.find((result) => result.status === 'fulfilled');
+        expect(success).toBeDefined();
+        const originalRefund = success!.value;
+        // Both sequential and concurrent same-key retries return the original refund.
+        const retries = await Promise.all([
+          payments.refundOrder(
+            'cus_123',
+            orderId,
+            originalRefund.idempotencyKey,
+          ),
+          payments.refundOrder(
+            'cus_123',
+            orderId,
+            originalRefund.idempotencyKey,
+          ),
+        ]);
+        expect(retries).toEqual([originalRefund, originalRefund]);
+        // The migration also prevents bypassing the repository's domain check.
+        await expect(
+          database.query(
+            'INSERT INTO payment_refunds (idempotency_key, payment_id, amount_cents) VALUES ($1, $2, 1500)',
+            [`bypass-${suffix}`, paymentId],
+          ),
+        ).rejects.toMatchObject({
+          driverError: {
+            code: '23505',
+            constraint: 'payment_refunds_payment_id_key',
+          },
+        });
+        const refunds = await database.query<
+          { count: string; amount: string }[]
+        >(
+          'SELECT count(*)::text AS count, sum(amount_cents)::text AS amount FROM payment_refunds WHERE payment_id = $1',
+          [paymentId],
+        );
+        expect(refunds).toEqual([{ count: '1', amount: '1500' }]);
+        const payment = await database.query<
+          { refunded_cents: number; status: string }[]
+        >('SELECT refunded_cents, status FROM payments WHERE id = $1', [
+          paymentId,
+        ]);
+        expect(payment).toEqual([
+          { refunded_cents: 1500, status: 'partially_refunded' },
+        ]);
+      } finally {
+        await database.query(
+          'DELETE FROM payment_refunds WHERE payment_id = $1',
+          [paymentId],
+        );
+        await database.query('DELETE FROM orders WHERE id = $1', [orderId]);
+        await database.query('DELETE FROM payments WHERE id = $1', [paymentId]);
+      }
+    },
+  );
 
   async function waitForApprovals(runId: string) {
     const support = 'Bearer test-support-token';
