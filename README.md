@@ -65,7 +65,9 @@ docker compose up -d db redis mailpit
 
 The first database initializes both `chatbot` for development and
 `chatbot_test` for end-to-end tests. Set `DATABASE_URL` in `.env` if needed.
-Compose publishes PostgreSQL on `127.0.0.1:15432` by default.
+The local Compose stack uses Linux host networking, with each service explicitly bound to loopback: PostgreSQL `127.0.0.1:15432`, Redis `127.0.0.1:16379`, Mailpit HTTP `127.0.0.1:18025`, and SMTP `127.0.0.1:11025`. This avoids host-to-Docker bridge filtering by local VPN software. Docker Desktop requires host networking support to be enabled. Existing `.env` service addresses remain valid.
+
+When switching an existing stack from bridge networking, run `docker compose down` (without `--volumes`), followed by `docker compose up -d --build --force-recreate --wait`. Named volumes and stored data are preserved.
 Existing database volumes created before the test database initialization was
 added may need `docker compose exec db createdb -U chatbot chatbot_test` once.
 The API and worker apply tracked SQL migrations at startup and seed two demo customers,
@@ -94,6 +96,8 @@ The Business API serves public `GET /catalog/search?q=...`, support-only
 `POST /catalog/index`, customer-authenticated `POST /refunds`, and support-only
 refund approval routes under `/refunds/:runId/approvals`. The Vite server proxies
 `/api/*` to the Business API and `/agent-api/*` to the Agent API. Message submission accepts only a UUID `requestId` and `text` (1–4,000 characters). It is limited to 10 requests per minute per client IP; history reads allow 120 per minute for recovery polling.
+
+For manual API testing, import the [Insomnia collection](insomnia/agent-api.insomnia.json) and follow its [setup and walkthrough](insomnia/README.md). It includes conversation creation, streaming, history recovery, idempotency, address approval, and validation requests.
 
 ### Agent-to-business boundary
 

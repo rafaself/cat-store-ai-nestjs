@@ -1,39 +1,61 @@
 services:
   db:
     image: pgvector/pgvector:pg16
+    network_mode: host
+    command:
+      ['postgres', '-c', 'listen_addresses=127.0.0.1', '-c', 'port=15432']
     environment:
       POSTGRES_USER: chatbot
       POSTGRES_PASSWORD: chatbot
       POSTGRES_DB: chatbot
-    ports:
-      - '127.0.0.1:15432:5432'
+      PGPORT: 15432
     volumes:
       - chatbot-postgres:/var/lib/postgresql/data
       - ./infra/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U chatbot -d chatbot']
+      test:
+        [
+          'CMD',
+          'pg_isready',
+          '-h',
+          '127.0.0.1',
+          '-p',
+          '15432',
+          '-U',
+          'chatbot',
+          '-d',
+          'chatbot',
+        ]
       interval: 3s
       timeout: 3s
       retries: 20
   redis:
     image: redis:8.6.1-alpine
-    command: ['redis-server', '--appendonly', 'yes']
-    ports:
-      - '127.0.0.1:16379:6379'
+    network_mode: host
+    command:
+      [
+        'redis-server',
+        '--bind',
+        '127.0.0.1',
+        '--port',
+        '16379',
+        '--appendonly',
+        'yes',
+      ]
     volumes:
       - chatbot-redis:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD', 'redis-cli', '-h', '127.0.0.1', '-p', '16379', 'ping']
       interval: 3s
       timeout: 3s
       retries: 20
   mailpit:
     image: axllent/mailpit:v1.27.8
+    network_mode: host
     environment:
       MP_DATABASE: /data/mailpit.db
-    ports:
-      - '127.0.0.1:11025:1025'
-      - '127.0.0.1:18025:8025'
+      MP_UI_BIND_ADDR: 127.0.0.1:18025
+      MP_SMTP_BIND_ADDR: 127.0.0.1:11025
     volumes:
       - chatbot-mailpit:/data
 
