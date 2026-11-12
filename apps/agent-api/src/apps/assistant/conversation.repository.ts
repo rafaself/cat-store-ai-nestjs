@@ -10,16 +10,22 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, type QueryRunner } from 'typeorm';
 import type { PoolClient } from 'pg';
 import type { ModelMessage, UIMessage } from 'ai';
+import {
+  ConversationEntity,
+  ConversationTurnEntity,
+  ConversationToolExecutionEntity,
+  ConversationApprovalEntity,
+} from '@cat-supplies-store/database';
 import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
 
-export type TurnStatus = 'running' | 'completed' | 'failed' | 'interrupted';
+export type TurnStatus = ConversationTurnEntity['status'];
 export type TerminalTurnStatus = Exclude<TurnStatus, 'running'>;
 export interface ConversationTurn {
   id: string;
   conversation_id: string;
   request_id: string;
   sequence: number;
-  kind: 'message' | 'approval';
+  kind: ConversationTurnEntity['kind'];
   input: string;
   status: TurnStatus;
   model_messages: ModelMessage[];
@@ -31,7 +37,7 @@ export interface ToolExecution {
   name: string;
   input: unknown;
   output: unknown;
-  status: 'running' | 'completed' | 'failed' | 'unknown';
+  status: ConversationToolExecutionEntity['status'];
 }
 export interface ConversationSession {
   runner: QueryRunner;
@@ -47,26 +53,29 @@ export class ConversationRepository {
 
   async create(customerId: string) {
     const id = randomUUID();
-    await this.database.query(
-      'INSERT INTO conversations(id, customer_id) VALUES ($1, $2)',
-      [id, customerId],
-    );
+    await this.database
+      .getRepository(ConversationEntity)
+      .insert({ id, customer_id: customerId });
     return { id };
   }
 
   list(customerId: string): Promise<{ id: string; created_at: Date }[]> {
-    return this.database.query(
-      'SELECT id, created_at FROM conversations WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 50',
-      [customerId],
-    );
+    return this.database.getRepository(ConversationEntity).find({
+      select: { id: true, created_at: true },
+      where: { customer_id: customerId },
+      order: { created_at: 'DESC' },
+      take: 50,
+    });
   }
 
   async assertOwner(conversationId: string, customerId: string) {
-    const rows = await this.database.query(
-      'SELECT id FROM conversations WHERE id = $1 AND customer_id = $2',
-      [conversationId, customerId],
-    );
-    if (!rows.length) throw new NotFoundException('Conversation not found.');
+    const owned = await this.database
+      .getRepository(ConversationEntity)
+      .existsBy({
+        id: conversationId,
+        customer_id: customerId,
+      });
+    if (!owned) throw new NotFoundException('Conversation not found.');
   }
 
   // A session lock holds a connection, never an open transaction during generation.
@@ -169,49 +178,111 @@ export class ConversationRepository {
 
   private async recover({ runner, conversationId }: ConversationSession) {
     await runner.startTransaction();
-    await runner.query(
-      `UPDATE conversation_tool_executions SET status = 'unknown', finished_at = now()
-        WHERE status = 'running' AND turn_id IN (SELECT id FROM conversation_turns WHERE conversation_id = $1 AND status = 'running')`,
-      [conversationId],
-    );
-    await runner.query(
-      `UPDATE conversation_approvals SET status = 'unknown' WHERE conversation_id = $1 AND status = 'executing'`,
-      [conversationId],
-    );
-    await runner.query(
-      `UPDATE conversation_turns SET status = 'interrupted', finished_at = now() WHERE conversation_id = $1 AND status = 'running'`,
-      [conversationId],
-    );
+    const activeTurns = runner.manager
+      .createQueryBuilder()
+      .subQuery()
+      .select('turn.id')
+      .from(ConversationTurnEntity, 'turn')
+      .where('turn.conversation_id = :conversationId', { conversationId })
+      .andWhere('turn.status = :turnStatus', { turnStatus: 'running' });
+    await runner.manager
+      .createQueryBuilder()
+      .update(ConversationToolExecutionEntity)
+      .set({ status: 'unknown', finished_at: () => 'CURRENT_TIMESTAMP' })
+      .where({ status: 'running' })
+      .andWhere(`turn_id IN ${activeTurns.getQuery()}`)
+      .setParameters(activeTurns.getParameters())
+      .execute();
+    await runner.manager
+      .createQueryBuilder()
+      .update(ConversationApprovalEntity)
+      .set({ status: 'unknown' })
+      .where({ conversation_id: conversationId, status: 'executing' })
+      .execute();
+    await runner.manager
+      .createQueryBuilder()
+      .update(ConversationTurnEntity)
+      .set({ status: 'interrupted', finished_at: () => 'CURRENT_TIMESTAMP' })
+      .where({ conversation_id: conversationId, status: 'running' })
+      .execute();
     await runner.commitTransaction();
     // On failure, acquire() invokes session cleanup to roll back or discard.
   }
 
-  turns(
+  async turns(
     conversationId: string,
     runner?: QueryRunner,
   ): Promise<ConversationTurn[]> {
-    return (runner ?? this.database).query(
-      'SELECT * FROM conversation_turns WHERE conversation_id = $1 ORDER BY sequence',
-      [conversationId],
-    );
+    const turns = await (runner?.manager ?? this.database.manager)
+      .getRepository(ConversationTurnEntity)
+      .find({
+        where: { conversation_id: conversationId },
+        order: { sequence: 'ASC' },
+      });
+    // SDK message types stay in the Agent API; shared entities map JSONB as unknown.
+    return turns as ConversationTurn[];
   }
+
   tools(
     conversationId: string,
     runner?: QueryRunner,
   ): Promise<ToolExecution[]> {
-    return (runner ?? this.database).query(
-      `SELECT e.* FROM conversation_tool_executions e JOIN conversation_turns t ON t.id = e.turn_id WHERE t.conversation_id = $1 ORDER BY t.sequence, e.created_at, e.tool_call_id`,
-      [conversationId],
-    );
+    return (runner?.manager ?? this.database.manager)
+      .getRepository(ConversationToolExecutionEntity)
+      .createQueryBuilder('execution')
+      .innerJoin(ConversationTurnEntity, 'turn', 'turn.id = execution.turn_id')
+      .where('turn.conversation_id = :conversationId', { conversationId })
+      .orderBy('turn.sequence', 'ASC')
+      .addOrderBy('execution.created_at', 'ASC')
+      .addOrderBy('execution.tool_call_id', 'ASC')
+      .getMany();
   }
-  approvals(
+
+  async approvals(
     conversationId: string,
   ): Promise<{ confirmationId: string; status: string }[]> {
-    return this.database.query(
-      'SELECT confirmation_id AS "confirmationId", status FROM conversation_approvals WHERE conversation_id = $1',
-      [conversationId],
-    );
+    const approvals = await this.database
+      .getRepository(ConversationApprovalEntity)
+      .find({
+        select: { confirmation_id: true, status: true },
+        where: { conversation_id: conversationId },
+      });
+    return approvals.map((approval) => ({
+      confirmationId: approval.confirmation_id,
+      status: approval.status,
+    }));
   }
+
+  async approval(session: ConversationSession, confirmationId: string) {
+    const approval = await session.runner.manager
+      .getRepository(ConversationApprovalEntity)
+      .findOneBy({
+        confirmation_id: confirmationId,
+        conversation_id: session.conversationId,
+      });
+    if (!approval) throw new NotFoundException('Proposal not found.');
+    return approval;
+  }
+
+  async startApproval(
+    session: ConversationSession,
+    confirmationId: string,
+    turnId: string,
+  ) {
+    const result = await session.runner.manager
+      .createQueryBuilder()
+      .update(ConversationApprovalEntity)
+      .set({ status: 'executing', turn_id: turnId })
+      .where({
+        confirmation_id: confirmationId,
+        conversation_id: session.conversationId,
+        status: 'pending',
+      })
+      .execute();
+    if (result.affected !== 1)
+      throw new ConflictException('Proposal is not pending.');
+  }
+
   async snapshot(
     conversationId: string,
     customerId: string,
@@ -243,15 +314,17 @@ export class ConversationRepository {
     input: string,
     kind: ConversationTurn['kind'],
   ) {
-    const [previous]: ConversationTurn[] = await session.runner.query(
-      'SELECT * FROM conversation_turns WHERE conversation_id = $1 AND request_id = $2',
-      [session.conversationId, requestId],
-    );
+    const previous = await session.runner.manager
+      .getRepository(ConversationTurnEntity)
+      .findOneBy({
+        conversation_id: session.conversationId,
+        request_id: requestId,
+      });
     if (previous && (previous.input !== input || previous.kind !== kind))
       throw new ConflictException(
         'Request ID was already used for different input.',
       );
-    return previous;
+    return previous as ConversationTurn | null;
   }
 
   async begin(
@@ -272,19 +345,23 @@ export class ConversationRepository {
         'Conversation is full. Start a new conversation.',
       );
     }
-    const [turn] = await session.runner.query(
-      `INSERT INTO conversation_turns(id, conversation_id, request_id, sequence, kind, input, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'running') RETURNING *`,
-      [
-        randomUUID(),
-        session.conversationId,
-        requestId,
-        turns.length + 1,
+    const result = await session.runner.manager
+      .createQueryBuilder()
+      .insert()
+      .into(ConversationTurnEntity)
+      .values({
+        id: randomUUID(),
+        conversation_id: session.conversationId,
+        request_id: requestId,
+        sequence: turns.length + 1,
         kind,
         input,
-      ],
-    );
-    return { turn: turn as ConversationTurn, duplicate: false, history: turns };
+        status: 'running',
+      })
+      .returning('*')
+      .execute();
+    const [turn] = result.raw as ConversationTurn[];
+    return { turn, duplicate: false, history: turns };
   }
 
   async finish(
@@ -329,19 +406,17 @@ export class ConversationRepository {
   ) {
     try {
       await session.runner.startTransaction();
-      const result = await session.runner.query(
-        `
-        UPDATE conversation_approvals SET status = $4
-        WHERE confirmation_id = $1 AND conversation_id = $2 AND turn_id = $3 AND status = 'executing'
-        RETURNING confirmation_id`,
-        [
-          confirmationId,
-          session.conversationId,
-          turnId,
-          status === 'completed' ? 'completed' : 'unknown',
-        ],
-        true,
-      );
+      const result = await session.runner.manager
+        .createQueryBuilder()
+        .update(ConversationApprovalEntity)
+        .set({ status: status === 'completed' ? 'completed' : 'unknown' })
+        .where({
+          confirmation_id: confirmationId,
+          conversation_id: session.conversationId,
+          turn_id: turnId,
+          status: 'executing',
+        })
+        .execute();
       if (result.affected !== 1)
         throw new ConflictException('Approval is not executing this turn.');
       await this.finish(session, turnId, status, messages, ui);
@@ -383,10 +458,19 @@ export class ConversationRepository {
         throw new ConflictException('Tool execution cannot be repeated.');
       return previous[0].output as T;
     }
-    await session.runner.query(
-      `INSERT INTO conversation_tool_executions(turn_id, tool_call_id, name, input, status) VALUES ($1, $2, $3, $4::jsonb, 'running')`,
-      [turnId, callId, name, JSON.stringify(input)],
-    );
+    await session.runner.manager
+      .createQueryBuilder()
+      .insert()
+      .into(ConversationToolExecutionEntity)
+      .values({
+        turn_id: turnId,
+        tool_call_id: callId,
+        name,
+        input: () => 'CAST(:input AS jsonb)',
+        status: 'running',
+      })
+      .setParameter('input', JSON.stringify(input))
+      .execute();
     let output: T;
     try {
       session.signal.throwIfAborted();
@@ -397,21 +481,23 @@ export class ConversationRepository {
         [400, 401, 403, 404, 429].includes(error.getStatus())
           ? 'failed'
           : 'unknown';
-      await session.runner.query(
-        `UPDATE conversation_tool_executions SET status = $3, finished_at = now() WHERE turn_id = $1 AND tool_call_id = $2`,
-        [turnId, callId, status],
-      );
+      await this.finishTool(session, turnId, callId, status);
       throw error;
     }
     // Never report success to the model before the operation result is durable.
     const proposal = addressChangeProposalSchema.safeParse(output);
     if (name === 'change-address' && proposal.success) {
-      await session.runner.query(
+      const saved: { turn_id: string }[] = await session.runner.query(
         `WITH saved AS (
-        UPDATE conversation_tool_executions SET status = 'completed', output = $3::jsonb, finished_at = now()
-        WHERE turn_id = $1 AND tool_call_id = $2 RETURNING turn_id
-      ) INSERT INTO conversation_approvals(confirmation_id, conversation_id, proposal)
-        SELECT $4, $5, $3::jsonb FROM saved ON CONFLICT DO NOTHING`,
+          UPDATE conversation_tool_executions
+          SET status = 'completed', output = $3::jsonb, finished_at = now()
+          WHERE turn_id = $1 AND tool_call_id = $2 AND status = 'running'
+          RETURNING turn_id
+        ), proposed AS (
+          INSERT INTO conversation_approvals(confirmation_id, conversation_id, proposal)
+          SELECT $4, $5, $3::jsonb FROM saved ON CONFLICT DO NOTHING
+        )
+        SELECT turn_id FROM saved`,
         [
           turnId,
           callId,
@@ -420,12 +506,34 @@ export class ConversationRepository {
           session.conversationId,
         ],
       );
+      if (saved.length !== 1)
+        throw new ConflictException('Tool execution is not running.');
     } else {
-      await session.runner.query(
-        `UPDATE conversation_tool_executions SET status = 'completed', output = $3::jsonb, finished_at = now() WHERE turn_id = $1 AND tool_call_id = $2`,
-        [turnId, callId, JSON.stringify(output)],
-      );
+      await this.finishTool(session, turnId, callId, 'completed', output);
     }
     return output;
+  }
+  private async finishTool(
+    session: ConversationSession,
+    turnId: string,
+    callId: string,
+    status: 'completed' | 'failed' | 'unknown',
+    output?: unknown,
+  ) {
+    const result = await session.runner.manager
+      .createQueryBuilder()
+      .update(ConversationToolExecutionEntity)
+      .set({
+        status,
+        finished_at: () => 'CURRENT_TIMESTAMP',
+        ...(status === 'completed'
+          ? { output: () => 'CAST(:output AS jsonb)' }
+          : {}),
+      })
+      .where({ turn_id: turnId, tool_call_id: callId, status: 'running' })
+      .setParameter('output', JSON.stringify(output))
+      .execute();
+    if (result.affected !== 1)
+      throw new ConflictException('Tool execution is not running.');
   }
 }

@@ -1,8 +1,23 @@
 import { EventEmitter } from 'node:events';
 import { Logger } from '@nestjs/common';
-import type { DataSource } from 'typeorm';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DataSource, type QueryRunner } from 'typeorm';
+import { databaseOptions } from '@cat-supplies-store/database';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ConversationRepository } from './conversation.repository';
+
+// Load real entity metadata and QueryBuilder without opening a database connection.
+// Only query execution is stubbed; PostgreSQL behavior is covered by integration tests.
+class MetadataDataSource extends DataSource {
+  prepare() {
+    return this.buildMetadatas();
+  }
+}
+const metadata = new MetadataDataSource(
+  databaseOptions({ connectionString: 'postgresql://unused/unused' }),
+);
+beforeAll(async () => {
+  await metadata.prepare();
+});
 
 function fixture() {
   const events: string[] = [];
@@ -13,6 +28,8 @@ function fixture() {
     }),
   });
   const runner = {
+    manager: undefined as unknown as QueryRunner['manager'],
+    broadcaster: { broadcast: vi.fn(async () => {}) },
     isReleased: false,
     isTransactionActive: false,
     connect: vi.fn(async () => client),
@@ -39,8 +56,11 @@ function fixture() {
       runner.isReleased = true;
     }),
   };
+  runner.manager = metadata.createEntityManager(
+    runner as unknown as QueryRunner,
+  );
   const database = {
-    query: vi.fn(async () => [{ id: 'conversation' }]),
+    getRepository: () => ({ existsBy: vi.fn(async () => true) }),
     createQueryRunner: () => runner,
   };
   const repository = new ConversationRepository(

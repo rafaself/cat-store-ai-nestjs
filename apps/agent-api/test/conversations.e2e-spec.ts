@@ -739,4 +739,141 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
       await session.release();
     }
   });
+  it('keeps mapped inserts, lookups, joins and updates on the session transaction', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const session = await repo.acquire(id, 'cus_123');
+    const requestId = randomUUID();
+    const statements: string[] = [];
+    const query = session.runner.query.bind(session.runner);
+    vi.spyOn(session.runner, 'query').mockImplementation((sql, ...args) => {
+      statements.push(String(sql));
+      return query(sql, ...args);
+    });
+    try {
+      await session.runner.startTransaction();
+      statements.length = 0;
+      const { turn } = await repo.begin(
+        session,
+        requestId,
+        'Test rollback',
+        'message',
+      );
+      // Preserve the three-round-trip budget: ordered history, idempotency lookup,
+      // and INSERT RETURNING, with no extra lookup to recover server defaults.
+      expect(statements).toHaveLength(3);
+      expect(turn).toMatchObject({
+        status: 'running',
+        sequence: 1,
+        model_messages: [],
+        ui_message: null,
+      });
+      expect(
+        await repo.previous(session, requestId, 'Test rollback', 'message'),
+      ).toMatchObject({ id: turn.id });
+      const input = {
+        orderId: 'ord_123',
+        nested: { quote: "' ; SELECT 1 --", enabled: true },
+      };
+      const output = [
+        { product: 'toy', price: 123 },
+        { product: 'food', price: null },
+      ];
+      const operation = vi.fn(async () => output);
+      expect(
+        await repo.executeTool(
+          session,
+          turn.id,
+          'json',
+          'search-products',
+          input,
+          operation,
+        ),
+      ).toEqual(output);
+      expect(
+        await repo.executeTool(
+          session,
+          turn.id,
+          'json',
+          'search-products',
+          { nested: input.nested, orderId: input.orderId },
+          operation,
+        ),
+      ).toEqual(output);
+      expect(operation).toHaveBeenCalledTimes(1);
+      await expect(
+        repo.executeTool(
+          session,
+          turn.id,
+          'json',
+          'search-products',
+          { orderId: 'different' },
+          operation,
+        ),
+      ).rejects.toThrow('cannot be repeated');
+      expect(await repo.tools(id, session.runner)).toEqual([
+        expect.objectContaining({ input, output, status: 'completed' }),
+      ]);
+      expect(await repo.turns(id)).toEqual([]);
+      expect(await repo.tools(id)).toEqual([]);
+      await session.runner.rollbackTransaction();
+      expect(await repo.turns(id)).toEqual([]);
+      expect(await repo.tools(id)).toEqual([]);
+    } finally {
+      await session.release();
+    }
+  });
+
+  it('maps customer-scoped conversation lists and guards approval transitions', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const other = await (await http('', {}, 'other')).json();
+    created.push(other.id);
+    const listing = await (await http()).json();
+    expect(listing).toContainEqual(
+      expect.objectContaining({ id, created_at: expect.any(String) }),
+    );
+    expect(listing.some((entry: { id: string }) => entry.id === other.id)).toBe(
+      false,
+    );
+    const session = await repo.acquire(id, 'cus_123');
+    const confirmationId = randomUUID();
+    const { turn } = await repo.begin(
+      session,
+      randomUUID(),
+      'Approve',
+      'approval',
+    );
+    try {
+      await session.runner.query(
+        `INSERT INTO conversation_approvals(confirmation_id, conversation_id, proposal) VALUES ($1, $2, '{}')`,
+        [confirmationId, id],
+      );
+      expect(await repo.approval(session, confirmationId)).toMatchObject({
+        status: 'pending',
+        turn_id: null,
+      });
+      await repo.startApproval(session, confirmationId, turn.id);
+      expect(await repo.approval(session, confirmationId)).toMatchObject({
+        status: 'executing',
+        turn_id: turn.id,
+      });
+      await expect(
+        repo.startApproval(session, confirmationId, turn.id),
+      ).rejects.toThrow('not pending');
+      await expect(repo.approval(session, randomUUID())).rejects.toThrow(
+        'not found',
+      );
+      await repo.finishApproval(
+        session,
+        turn.id,
+        confirmationId,
+        'failed',
+        [],
+        { id: turn.id, role: 'assistant', parts: [] },
+      );
+    } finally {
+      await session.release();
+    }
+  });
 });

@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
-  NotFoundException,
   PayloadTooLargeException,
   UnauthorizedException,
   ServiceUnavailableException,
@@ -223,11 +222,7 @@ export class ConversationService {
     let turnId: string | undefined;
     let failure: unknown;
     try {
-      const [approval] = await session.runner.query(
-        'SELECT * FROM conversation_approvals WHERE confirmation_id = $1 AND conversation_id = $2',
-        [confirmationId, id],
-      );
-      if (!approval) throw new NotFoundException('Proposal not found.');
+      const approval = await this.repository.approval(session, confirmationId);
       const proposal = addressChangeProposalSchema.parse(approval.proposal);
       const text = `Apply approved address change ${confirmationId}.`;
       const previous = await this.repository.previous(
@@ -250,10 +245,7 @@ export class ConversationService {
         'approval',
       );
       turnId = turn.id;
-      await session.runner.query(
-        `UPDATE conversation_approvals SET status = 'executing', turn_id = $2 WHERE confirmation_id = $1`,
-        [confirmationId, turn.id],
-      );
+      await this.repository.startApproval(session, confirmationId, turn.id);
       await this.repository.executeTool(
         session,
         turn.id,
