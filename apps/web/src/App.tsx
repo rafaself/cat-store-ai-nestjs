@@ -1,10 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
+import { prepareChatRequest } from './chat-request.js';
 import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
 
 const transport = new DefaultChatTransport({
   api: '/agent-api/assistant/chat',
+  prepareSendMessagesRequest: ({ messages }) => ({
+    body: prepareChatRequest(messages),
+  }),
   headers: {
     Authorization: `Bearer ${import.meta.env.VITE_DEMO_CUSTOMER_TOKEN ?? ''}`,
   },
@@ -55,7 +59,7 @@ export default function App() {
         );
       setConfirmed((ids) => [...ids, proposal.confirmationId]);
       await sendMessage({
-        text: `I confirmed changing the delivery address for order ${proposal.orderId} to ${JSON.stringify(proposal.address)} using the confirmation button. Please apply it.`,
+        text: `I confirmed changing the delivery address for order ${proposal.orderId} to ${JSON.stringify(proposal.address)} using the confirmation button (confirmationId: ${JSON.stringify(proposal.confirmationId)}). Please apply it.`,
       });
     } catch (error) {
       setConfirmationError(
