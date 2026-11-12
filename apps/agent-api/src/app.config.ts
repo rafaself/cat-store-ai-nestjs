@@ -9,6 +9,7 @@ import { loadAgentApiConfig } from './config/agent-api.config';
 
 const environment = readEnvironment(resolve(__dirname, '../../../.env'));
 const agent = loadAgentApiConfig(environment);
+
 export const aiConfig = createAiConfig(loadAiConfig(environment));
 export const appConfigOptions = {
   isGlobal: true,
