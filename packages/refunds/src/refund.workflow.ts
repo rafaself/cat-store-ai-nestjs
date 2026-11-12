@@ -26,7 +26,9 @@ export class RefundRequestWorkflow {
       tools: ['issue-refund'],
       approve: ['issue-refund'],
       maxSteps: 3,
-      caller: { user: { id: input.customerId } },
+      caller: {
+        user: { id: input.customerId, refundOrderId: input.orderId },
+      },
     });
   }
 }

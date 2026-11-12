@@ -582,6 +582,68 @@ describe('Cat store API (e2e)', () => {
     );
   });
 
+  it('rejects an approved refund tool call for a different order owned by the same customer', async () => {
+    const database = app.get(DataSource);
+    const started = await request(app.getHttpServer())
+      .post('/refunds')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({ orderId: 'ord_123', reason: 'The item arrived damaged.' })
+      .expect(201);
+    const runId = started.body.runId as string;
+    const model = new FakeModel([
+      {
+        toolCalls: [
+          {
+            name: 'issue-refund',
+            input: {
+              orderId: 'ord_124',
+              reason: 'Refund another order instead.',
+            },
+          },
+        ],
+      },
+      'The refund was not executed.',
+    ]);
+    worker = await createWorker(model);
+    try {
+      const approvals = await waitForApprovals(runId);
+      expect(approvals).toHaveLength(1);
+      const before = await database.query<
+        { id: string; refunded_cents: number }[]
+      >(
+        "SELECT id, refunded_cents FROM payments WHERE id IN ('pay_123', 'pay_124') ORDER BY id",
+      );
+      expect(before.map((payment) => payment.refunded_cents)).toEqual([0, 0]);
+      await request(app.getHttpServer())
+        .post(
+          `/refunds/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(approvals[0].key)}`,
+        )
+        .set('Authorization', 'Bearer test-support-token')
+        .send({ approved: true })
+        .expect(201);
+      await app.get(WorkflowClient).result(runId, { timeout: '5s' });
+      expect(model.lastCall?.toolResults).toEqual([
+        expect.objectContaining({
+          toolName: 'issue-refund',
+          output: expect.any(String),
+        }),
+      ]);
+      const after = await database.query<
+        { id: string; refunded_cents: number }[]
+      >(
+        "SELECT id, refunded_cents FROM payments WHERE id IN ('pay_123', 'pay_124') ORDER BY id",
+      );
+      expect(after).toEqual(before);
+      const refunds = await database.query<{ count: string }[]>(
+        "SELECT count(*)::text AS count FROM payment_refunds WHERE payment_id IN ('pay_123', 'pay_124')",
+      );
+      expect(refunds[0]?.count).toBe('0');
+    } finally {
+      await worker.close();
+      worker = undefined;
+    }
+  });
+
   it('waits for refund approval, issues an idempotent simulated refund, and rejects another', async () => {
     const started = await request(app.getHttpServer())
       .post('/refunds')

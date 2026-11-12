@@ -1,5 +1,9 @@
 import { AgentFunction, type AgentFunctionContext } from '@nestjs/ai';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { PaymentsService } from './payments.service.js';
 
@@ -18,17 +22,31 @@ export class RefundTools {
   })
   async issueRefund(
     { orderId }: { orderId: string; reason: string },
-    context: AgentFunctionContext,
+    context: AgentFunctionContext<
+      unknown,
+      { id?: unknown; refundOrderId?: unknown }
+    >,
   ) {
     const customerId = context.user?.id;
-    if (typeof customerId !== 'string' || !context.idempotencyKey) {
+    const refundOrderId = context.user?.refundOrderId;
+    if (
+      typeof customerId !== 'string' ||
+      typeof refundOrderId !== 'string' ||
+      !refundOrderId ||
+      !context.idempotencyKey
+    ) {
       throw new UnauthorizedException(
         'Refunds require an authenticated durable workflow.',
       );
     }
+    if (orderId !== refundOrderId) {
+      throw new ForbiddenException(
+        'Refund order must match the original request.',
+      );
+    }
     return this.payments.refundOrder(
       customerId,
-      orderId,
+      refundOrderId,
       context.idempotencyKey,
     );
   }
