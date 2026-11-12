@@ -15,6 +15,7 @@ import {
 import type { z } from 'zod';
 
 export interface CustomerRequest {
+  customerId?: string;
   headers: { authorization?: string | string[] };
 }
 

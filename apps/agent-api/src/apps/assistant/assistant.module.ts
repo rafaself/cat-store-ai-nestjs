@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CustomerAuthGuard } from '../../auth/customer-auth.guard';
 import { AssistantController } from './assistant.controller';
 import { AssistantService } from './assistant.service';
+import { ChatStreamService } from './chat-stream.service';
 
 @Module({
   imports: [
@@ -13,6 +14,12 @@ import { AssistantService } from './assistant.service';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
   ],
   controllers: [AssistantController],
-  providers: [AssistantService, CustomerAuthGuard, OrdersTools, CatalogTools],
+  providers: [
+    ChatStreamService,
+    AssistantService,
+    CustomerAuthGuard,
+    OrdersTools,
+    CatalogTools,
+  ],
 })
 export class AssistantModule {}

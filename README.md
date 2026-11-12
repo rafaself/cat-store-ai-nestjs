@@ -270,3 +270,13 @@ override the minimum level. Messages at that level and higher severity are
 enabled; `log` is Nest's informational level. Existing contextual loggers use
 the same application configuration. No log files or external log service are
 configured.
+
+### Chat streaming and resource limits
+
+The Agent API returns a web-standard `Response` for `POST /assistant/chat`, using NestJS 12.4+ native streaming and the AI SDK UI message protocol. The browser transport and tool events stay compatible. Authentication, request validation and capacity rejection happen before generation; asynchronous generation failures are sanitized UI error events, including failures before model content arrives. Nest handles response delivery and disconnect cancellation.
+
+Each chat allows four model calls, with the existing 800-output-token limit per call. A two-minute deadline covers generation and response-body delivery. Capacity is limited to one active chat per authenticated customer and 20 per Agent API process, with no waiting queue. A customer's identity comes from the Business API authentication response. Customer saturation returns 429; process saturation or shutdown returns 503. Slots remain held until both generation settles and the response body finishes or is cancelled. Slow or stalled clients are cancelled at the deadline; shutdown aborts active chats. The deadline ends the HTTP stream abruptly, so clients must treat a transport failure as incomplete output.
+
+These are initial operational limits, not throughput or memory guarantees. They are local to each process: multiple replicas multiply the total capacity and need shared admission control if a deployment-wide limit is required. The installed `@nestjs/ai` retains generation chunks for replay and final results; native HTTP backpressure does not remove that retention or pause its producer. Output tokens do not cap tool-result bytes. Strict memory bounds would require bounded single-consumer streaming upstream and explicit tool-payload limits. Do not add replay consumers or background copies of the response stream.
+
+Offline tests cover protocol events, tool calls, errors, real HTTP disconnects before and during content, admission, deadline expiry for a stalled reader and shutdown. They do not establish live-provider throughput or a production memory ceiling. Run `pnpm test` for this coverage, and `pnpm test:e2e` with the documented local services for full Business API tool round trips.

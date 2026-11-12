@@ -12,9 +12,12 @@ import {
 export class CustomerAuthGuard implements CanActivate {
   constructor(private readonly business: BusinessApiClient) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  async canActivate(context: ExecutionContext): Promise<true> {
     const request = context.switchToHttp().getRequest<CustomerRequest>();
-    await this.business.authenticate(request);
+
+    const customer = await this.business.authenticate(request);
+    request.customerId = customer.id;
+
     return true;
   }
 }
