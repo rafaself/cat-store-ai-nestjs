@@ -3,7 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import {
   orderIdSchema,
-  changeAddressSchema,
+  addressChangeToolInputSchema,
+  type AddressChangeToolInput,
 } from '@cat-supplies-store/contracts';
 import {
   BusinessApiClient,
@@ -32,16 +33,26 @@ export class OrdersTools {
 
   @AgentFunction({
     name: 'change-address',
-    description: 'Change the delivery address of an eligible customer order.',
-    inputSchema: changeAddressSchema.extend({ orderId: orderIdSchema }),
+    description:
+      'Propose an address change. The user must approve it with the chat confirmation button. Only then call again with its confirmationId to execute the exact approved change.',
+    inputSchema: addressChangeToolInputSchema,
   })
   async changeAddress(
-    { orderId, address }: { orderId: string; address: string },
+    { orderId, address, confirmationId }: AddressChangeToolInput,
     context: AgentFunctionContext,
   ) {
+    if (!confirmationId) {
+      return this.orders.proposeAddressChange(
+        orderId,
+        address,
+        context.request as CustomerRequest | undefined,
+        context.signal,
+      );
+    }
     return this.orders.changeAddress(
       orderId,
       address,
+      confirmationId,
       context.request as CustomerRequest | undefined,
       context.signal,
     );

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
+import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
 
 const transport = new DefaultChatTransport({
   api: '/agent-api/assistant/chat',
@@ -11,6 +12,9 @@ const transport = new DefaultChatTransport({
 
 export default function App() {
   const [input, setInput] = useState('');
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<string[]>([]);
+  const [confirmationError, setConfirmationError] = useState('');
   const {
     messages,
     sendMessage,
@@ -22,10 +26,52 @@ export default function App() {
   } = useChat({ transport });
   const isBusy = status === 'submitted' || status === 'streaming';
 
+  async function confirmAddressChange(proposal: {
+    confirmationId: string;
+    orderId: string;
+    address: string;
+  }) {
+    setConfirming(proposal.confirmationId);
+    setConfirmationError('');
+    try {
+      const response = await fetch(
+        `/api/agent-tools/address-confirmations/${encodeURIComponent(proposal.confirmationId)}/approve`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_DEMO_CUSTOMER_TOKEN ?? ''}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            approved: true,
+            orderId: proposal.orderId,
+            address: proposal.address,
+          }),
+        },
+      );
+      if (!response.ok)
+        throw new Error(
+          'Unable to confirm this change. It may have expired; ask for a new proposal.',
+        );
+      setConfirmed((ids) => [...ids, proposal.confirmationId]);
+      await sendMessage({
+        text: `I confirmed changing the delivery address for order ${proposal.orderId} to ${JSON.stringify(proposal.address)} using the confirmation button. Please apply it.`,
+      });
+    } catch (error) {
+      setConfirmationError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to confirm the address change.',
+      );
+    } finally {
+      setConfirming(null);
+    }
+  }
+
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || isBusy) return;
+    if (!text || isBusy || confirming !== null) return;
 
     setInput('');
     clearError();
@@ -53,8 +99,10 @@ export default function App() {
               onClick={() => {
                 setMessages([]);
                 clearError();
+                setConfirmed([]);
+                setConfirmationError('');
               }}
-              disabled={messages.length === 0 || isBusy}
+              disabled={messages.length === 0 || isBusy || confirming !== null}
             >
               New chat
             </button>
@@ -114,6 +162,54 @@ export default function App() {
                         {message.role === 'user' ? 'You' : 'Assistant'}
                       </p>
                       <p className="message-text">{text}</p>
+                      {message.role === 'assistant' &&
+                        message.parts.map((part, index) => {
+                          if (
+                            part.type !== 'tool-change-address' ||
+                            part.state !== 'output-available'
+                          )
+                            return null;
+                          const parsed = addressChangeProposalSchema.safeParse(
+                            part.output,
+                          );
+                          if (!parsed.success) return null;
+                          const proposal = parsed.data;
+                          const approved = confirmed.includes(
+                            proposal.confirmationId,
+                          );
+                          return (
+                            <div key={`${proposal.confirmationId}-${index}`}>
+                              <p>
+                                Change delivery address for order{' '}
+                                <strong>{proposal.orderId}</strong> to{' '}
+                                <strong>{proposal.address}</strong>?
+                              </p>
+                              <p>
+                                Confirmation expires at{' '}
+                                {new Date(
+                                  proposal.expiresAt,
+                                ).toLocaleTimeString()}
+                                .
+                              </p>
+                              <button
+                                type="button"
+                                disabled={
+                                  isBusy ||
+                                  confirming !== null ||
+                                  approved ||
+                                  Date.parse(proposal.expiresAt) <= Date.now()
+                                }
+                                onClick={() =>
+                                  void confirmAddressChange(proposal)
+                                }
+                              >
+                                {approved
+                                  ? 'Confirmed'
+                                  : 'Confirm address change'}
+                              </button>
+                            </div>
+                          );
+                        })}
                     </div>
                   </article>
                 );
@@ -131,6 +227,11 @@ export default function App() {
         </div>
 
         <footer className="composer-area">
+          {confirmationError && (
+            <div className="error-banner" role="alert">
+              {confirmationError}
+            </div>
+          )}
           {error && (
             <div className="error-banner" role="alert">
               <span>
@@ -176,7 +277,7 @@ export default function App() {
               <button
                 className="send-button"
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || confirming !== null}
                 aria-label="Send message"
               >
                 <svg viewBox="0 0 20 20" aria-hidden="true">

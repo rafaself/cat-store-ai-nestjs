@@ -18,7 +18,31 @@ export class OrdersService {
     customerId: string,
     orderId: string,
     address: string,
+    confirmationId: string,
   ): Promise<OrderRecord | null> {
-    return this.orders.changeAddress(customerId, orderId, address);
+    return this.orders.changeAddress(
+      customerId,
+      orderId,
+      address,
+      confirmationId,
+    );
+  }
+
+  proposeAddressChange(customerId: string, orderId: string, address: string) {
+    return this.orders.proposeAddressChange(customerId, orderId, address);
+  }
+
+  approveAddressChange(
+    customerId: string,
+    confirmationId: string,
+    orderId: string,
+    address: string,
+  ) {
+    return this.orders.approveAddressChange(
+      customerId,
+      confirmationId,
+      orderId,
+      address,
+    );
   }
 }

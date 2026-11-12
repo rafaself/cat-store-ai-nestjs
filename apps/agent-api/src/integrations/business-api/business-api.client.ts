@@ -10,6 +10,7 @@ import {
   catalogSearchResponseSchema,
   customerIdentitySchema,
   customerOrderSchema,
+  addressChangeProposalSchema,
 } from '@cat-supplies-store/contracts';
 import type { z } from 'zod';
 
@@ -27,8 +28,9 @@ export class BusinessApiClient {
     path: string,
     caller: CustomerRequest | undefined,
     schema: z.ZodType<T>,
-    body?: { address: string },
+    body?: { address: string; confirmationId?: string },
     signal?: AbortSignal,
+    method = body ? 'PATCH' : 'GET',
   ): Promise<T> {
     const authorization = caller?.headers.authorization;
     if (typeof authorization !== 'string')
@@ -37,7 +39,7 @@ export class BusinessApiClient {
       const response = await fetch(
         `${this.config.getOrThrow<string>('businessApi.url')}/agent-tools/${path}`,
         {
-          method: body ? 'PATCH' : 'GET',
+          method,
           headers: {
             authorization,
             ...(body ? { 'content-type': 'application/json' } : {}),
@@ -90,6 +92,7 @@ export class BusinessApiClient {
   changeAddress(
     orderId: string,
     address: string,
+    confirmationId: string,
     caller: CustomerRequest | undefined,
     signal?: AbortSignal,
   ) {
@@ -97,8 +100,24 @@ export class BusinessApiClient {
       `orders/${encodeURIComponent(orderId)}/address`,
       caller,
       customerOrderSchema,
+      { address, confirmationId },
+      signal,
+    );
+  }
+
+  proposeAddressChange(
+    orderId: string,
+    address: string,
+    caller: CustomerRequest | undefined,
+    signal?: AbortSignal,
+  ) {
+    return this.request(
+      `orders/${encodeURIComponent(orderId)}/address-confirmations`,
+      caller,
+      addressChangeProposalSchema,
       { address },
       signal,
+      'POST',
     );
   }
 

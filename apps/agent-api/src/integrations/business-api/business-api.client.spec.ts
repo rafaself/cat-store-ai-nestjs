@@ -34,6 +34,7 @@ describe('BusinessApiClient', () => {
       client().changeAddress(
         'order/with/slashes',
         'A new delivery address',
+        '688d32d0-384d-4d1b-ad72-f78af0f9709a',
         caller,
       ),
     ).resolves.toEqual(order);
@@ -45,7 +46,10 @@ describe('BusinessApiClient', () => {
           authorization: 'Bearer customer-token',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ address: 'A new delivery address' }),
+        body: JSON.stringify({
+          address: 'A new delivery address',
+          confirmationId: '688d32d0-384d-4d1b-ad72-f78af0f9709a',
+        }),
         redirect: 'error',
         signal: expect.any(AbortSignal),
       }),

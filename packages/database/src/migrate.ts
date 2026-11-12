@@ -1,6 +1,7 @@
 import type { DataSource } from 'typeorm';
 import * as initial from './migrations/001-initial-schema.js';
 import * as emailDrafts from './migrations/002-email-drafts.js';
+import * as addressConfirmations from './migrations/003-address-change-confirmations.js';
 
 export async function migrateDatabase(dataSource: DataSource): Promise<void> {
   const runner = dataSource.createQueryRunner();
@@ -11,7 +12,7 @@ export async function migrateDatabase(dataSource: DataSource): Promise<void> {
     await runner.query(
       'CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
-    for (const migration of [initial, emailDrafts]) {
+    for (const migration of [initial, emailDrafts, addressConfirmations]) {
       const applied = await runner.query(
         'SELECT 1 FROM schema_migrations WHERE name = $1',
         [migration.migrationName],

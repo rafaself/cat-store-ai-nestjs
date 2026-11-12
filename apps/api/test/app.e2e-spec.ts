@@ -19,6 +19,10 @@ import { DataSource } from 'typeorm';
 import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
 import { readUIMessageStream, type UIMessage, type UIMessageChunk } from 'ai';
+import {
+  addressChangeProposalSchema,
+  chatRequestSchema,
+} from '@cat-supplies-store/contracts';
 
 function fakeEmbedding(text: string): number[] {
   const vector = Array.from({ length: 1024 }, () => 0);
@@ -261,8 +265,8 @@ describe('Cat store API (e2e)', () => {
       ),
     ).rejects.toThrow();
 
-    await expect(
-      callTool(
+    const proposal = addressChangeProposalSchema.parse(
+      await callTool(
         agent,
         'change-address',
         {
@@ -277,7 +281,63 @@ describe('Cat store API (e2e)', () => {
           },
         },
       ),
-    ).resolves.toMatchObject({ deliveryAddress: '99 New Address, São Paulo' });
+    );
+    const caller = {
+      request: { headers: { authorization: 'Bearer test-customer-token' } },
+    };
+    expect(
+      await callTool(agent, 'find-order', { orderId: 'ord_125' }, { caller }),
+    ).toMatchObject({ deliveryAddress: '123 Demo Street, São Paulo' });
+    const confirmedInput = {
+      orderId: proposal.orderId,
+      address: proposal.address,
+      confirmationId: proposal.confirmationId,
+    };
+    await expect(
+      callTool(agent, 'change-address', confirmedInput, { caller }),
+    ).rejects.toThrow();
+    await request(app.getHttpServer())
+      .post(
+        `/agent-tools/address-confirmations/${proposal.confirmationId}/approve`,
+      )
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({
+        approved: true,
+        orderId: proposal.orderId,
+        address: proposal.address,
+      })
+      .expect(201);
+    await expect(
+      callTool(agent, 'change-address', confirmedInput, { caller }),
+    ).resolves.toMatchObject({ deliveryAddress: proposal.address });
+    await expect(
+      callTool(agent, 'change-address', confirmedInput, { caller }),
+    ).rejects.toThrow();
+    // Proposal and execution parts must remain valid on subsequent chat turns.
+    expect(
+      chatRequestSchema.safeParse({
+        messages: [
+          {
+            id: 'proposal',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool-change-address',
+                toolCallId: 'proposal',
+                state: 'output-available',
+                input: { orderId: proposal.orderId, address: proposal.address },
+                output: proposal,
+              },
+            ],
+          },
+          {
+            id: 'user',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Confirmed with the button' }],
+          },
+        ],
+      }).success,
+    ).toBe(true);
 
     await expect(
       callTool(
@@ -305,12 +365,12 @@ describe('Cat store API (e2e)', () => {
       .set('Authorization', token)
       .expect(404);
     await request(app.getHttpServer())
-      .patch('/agent-tools/orders/ord_456/address')
+      .post('/agent-tools/orders/ord_456/address-confirmations')
       .set('Authorization', token)
       .send({ address: '1 Unauthorized Address, São Paulo' })
       .expect(404);
     await request(app.getHttpServer())
-      .patch('/agent-tools/orders/ord_123/address')
+      .post('/agent-tools/orders/ord_123/address-confirmations')
       .set('Authorization', token)
       .send({ address: '1 Ineligible Address, São Paulo' })
       .expect(404);
@@ -329,6 +389,156 @@ describe('Cat store API (e2e)', () => {
         },
       ),
     ).rejects.toThrow();
+  });
+
+  it('binds single-use address approvals to the customer, order, address, and expiration', async () => {
+    const token = 'Bearer test-customer-token';
+    const database = app.get(DataSource);
+    const address = '77 Explicitly Confirmed Street';
+    const propose = async () => {
+      const response = await request(app.getHttpServer())
+        .post('/agent-tools/orders/ord_125/address-confirmations')
+        .set('Authorization', token)
+        .send({ address })
+        .expect(201);
+      return addressChangeProposalSchema.parse(response.body);
+    };
+    const approve = (id: string) =>
+      request(app.getHttpServer())
+        .post(`/agent-tools/address-confirmations/${id}/approve`)
+        .set('Authorization', token)
+        .send({ approved: true, orderId: 'ord_125', address });
+    const mutate = (
+      id: string,
+      orderId = 'ord_125',
+      proposedAddress = address,
+    ) =>
+      request(app.getHttpServer())
+        .patch(`/agent-tools/orders/${orderId}/address`)
+        .set('Authorization', token)
+        .send({ address: proposedAddress, confirmationId: id });
+    const original = await request(app.getHttpServer())
+      .get('/agent-tools/orders/ord_125')
+      .set('Authorization', token)
+      .expect(200);
+    const unchanged = async () => {
+      const response = await request(app.getHttpServer())
+        .get('/agent-tools/orders/ord_125')
+        .set('Authorization', token)
+        .expect(200);
+      expect(response.body.deliveryAddress).toBe(original.body.deliveryAddress);
+    };
+
+    const proposal = await propose();
+    await unchanged();
+    await request(app.getHttpServer())
+      .patch('/agent-tools/orders/ord_125/address')
+      .set('Authorization', token)
+      .send({ address })
+      .expect(400);
+    await mutate(randomUUID()).expect(403);
+    await mutate(proposal.confirmationId).expect(403);
+    await request(app.getHttpServer())
+      .post(
+        `/agent-tools/address-confirmations/${proposal.confirmationId}/approve`,
+      )
+      .send({ approved: true })
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(
+        `/agent-tools/address-confirmations/${proposal.confirmationId}/approve`,
+      )
+      .set('Authorization', token)
+      .send({ approved: false, orderId: 'ord_125', address })
+      .expect(400);
+    await mutate(proposal.confirmationId).expect(403);
+    // A confirmation issued to another customer cannot be approved or used.
+    for (const mismatched of [
+      { approved: true, orderId: 'ord_456', address },
+      {
+        approved: true,
+        orderId: 'ord_125',
+        address: '88 Different Approval Street',
+      },
+    ]) {
+      await request(app.getHttpServer())
+        .post(
+          `/agent-tools/address-confirmations/${proposal.confirmationId}/approve`,
+        )
+        .set('Authorization', token)
+        .send(mismatched)
+        .expect(403);
+    }
+    await database.query(
+      'UPDATE address_change_confirmations SET customer_id = $1 WHERE id = $2',
+      ['cus_456', proposal.confirmationId],
+    );
+    await approve(proposal.confirmationId).expect(403);
+    await database.query(
+      'UPDATE address_change_confirmations SET approved_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [proposal.confirmationId],
+    );
+    await mutate(proposal.confirmationId).expect(403);
+
+    const expired = await propose();
+    await database.query(
+      "UPDATE address_change_confirmations SET expires_at = CURRENT_TIMESTAMP - interval '1 second' WHERE id = $1",
+      [expired.confirmationId],
+    );
+    await approve(expired.confirmationId).expect(403);
+    await mutate(expired.confirmationId).expect(403);
+    const approvedExpired = await propose();
+    await approve(approvedExpired.confirmationId).expect(201);
+    await database.query(
+      "UPDATE address_change_confirmations SET expires_at = CURRENT_TIMESTAMP - interval '1 second' WHERE id = $1",
+      [approvedExpired.confirmationId],
+    );
+    await mutate(approvedExpired.confirmationId).expect(403);
+
+    const approved = await propose();
+    await approve(approved.confirmationId).expect(201);
+    await approve(approved.confirmationId).expect(403);
+    await mutate(approved.confirmationId, 'ord_456').expect(403);
+    await mutate(
+      approved.confirmationId,
+      'ord_125',
+      '88 Unapproved Replacement Street',
+    ).expect(403);
+    await unchanged();
+    // Approval does not override eligibility or ownership changes after the proposal.
+    await database.query(
+      "UPDATE orders SET status = 'delivered' WHERE id = 'ord_125'",
+    );
+    try {
+      await mutate(approved.confirmationId).expect(404);
+      await unchanged();
+    } finally {
+      await database.query(
+        "UPDATE orders SET status = 'processing' WHERE id = 'ord_125'",
+      );
+    }
+    await database.query(
+      "UPDATE orders SET customer_id = 'cus_456' WHERE id = 'ord_125'",
+    );
+    try {
+      await mutate(approved.confirmationId).expect(404);
+    } finally {
+      await database.query(
+        "UPDATE orders SET customer_id = 'cus_123' WHERE id = 'ord_125'",
+      );
+    }
+    const results = await Promise.all([
+      mutate(approved.confirmationId),
+      mutate(approved.confirmationId),
+    ]);
+    expect(
+      results.map((response) => response.status).sort((a, b) => a - b),
+    ).toEqual([200, 403]);
+    expect(
+      results.find((response) => response.status === 200)?.body.deliveryAddress,
+    ).toBe(address);
+    await mutate(approved.confirmationId).expect(403);
+    await approve(approved.confirmationId).expect(403);
   });
 
   it('indexes seeded products and serves semantic catalog search', async () => {

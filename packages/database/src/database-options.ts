@@ -5,6 +5,7 @@ import { OrderEntity } from './orders/order.entity.js';
 import { PaymentEntity } from './payments/payment.entity.js';
 import { PaymentRefundEntity } from './payments/payment-refund.entity.js';
 import { EmailDraftEntity } from './email/email-draft.entity.js';
+import { AddressChangeConfirmationEntity } from './orders/address-change-confirmation.entity.js';
 
 export function databaseOptions(options: {
   connectionString: string;
@@ -21,6 +22,7 @@ export function databaseOptions(options: {
       PaymentRefundEntity,
       ProductEntity,
       EmailDraftEntity,
+      AddressChangeConfirmationEntity,
     ],
     synchronize: false,
     extra: {

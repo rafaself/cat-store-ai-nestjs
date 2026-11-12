@@ -3,6 +3,7 @@ export { ProductEntity } from './catalog/catalog.entity.js';
 export { EmailDraftEntity } from './email/email-draft.entity.js';
 export { CustomerEntity } from './customers/customer.entity.js';
 export { OrderEntity } from './orders/order.entity.js';
+export { AddressChangeConfirmationEntity } from './orders/address-change-confirmation.entity.js';
 export { PaymentEntity } from './payments/payment.entity.js';
 export { PaymentRefundEntity } from './payments/payment-refund.entity.js';
 export { migrationName, up } from './migrations/001-initial-schema.js';

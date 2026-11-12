@@ -475,6 +475,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^4.0.169
         version: 4.0.169(react@19.3.1)(zod@4.6.7)
+      '@cat-supplies-store/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       ai:
         specifier: ^7.0.165
         version: 7.0.165(zod@4.6.7)

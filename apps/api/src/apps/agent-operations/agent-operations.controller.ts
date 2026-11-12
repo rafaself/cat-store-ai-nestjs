@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -12,9 +14,15 @@ import {
   catalogSearchQuerySchema,
   catalogSearchResponseSchema,
   changeAddressSchema,
+  confirmedAddressChangeSchema,
+  addressChangeProposalSchema,
+  addressConfirmationIdSchema,
+  approveAddressChangeSchema,
   customerOrderSchema,
   orderIdSchema,
   type ChangeAddress,
+  type ConfirmedAddressChange,
+  type ApproveAddressChange,
   type CatalogSearchQuery,
 } from '@cat-supplies-store/contracts';
 import { DemoCustomerGuard } from '../../auth/demo-auth.guard';
@@ -50,18 +58,59 @@ export class AgentOperationsController {
   async changeAddress(
     @CurrentCustomer() customer: DemoCustomer,
     @Param('orderId', { schema: orderIdSchema }) orderId: string,
-    @Body({ schema: changeAddressSchema }) body: ChangeAddress,
+    @Body({ schema: confirmedAddressChangeSchema })
+    body: ConfirmedAddressChange,
   ) {
     const order = await this.orders.changeAddress(
       customer.id,
       orderId,
       body.address,
+      body.confirmationId,
     );
     if (!order)
       throw new NotFoundException(
         'Order not found or its address can no longer be changed.',
       );
     return customerOrderSchema.parse(order);
+  }
+
+  @Post('orders/:orderId/address-confirmations')
+  async proposeAddressChange(
+    @CurrentCustomer() customer: DemoCustomer,
+    @Param('orderId', { schema: orderIdSchema }) orderId: string,
+    @Body({ schema: changeAddressSchema }) body: ChangeAddress,
+  ) {
+    const proposal = await this.orders.proposeAddressChange(
+      customer.id,
+      orderId,
+      body.address,
+    );
+    if (!proposal)
+      throw new NotFoundException(
+        'Order not found or its address can no longer be changed.',
+      );
+    return addressChangeProposalSchema.parse(proposal);
+  }
+
+  // Deliberately not exposed as an agent tool: only the user's explicit UI action approves.
+  @Post('address-confirmations/:confirmationId/approve')
+  async approveAddressChange(
+    @CurrentCustomer() customer: DemoCustomer,
+    @Param('confirmationId', { schema: addressConfirmationIdSchema })
+    confirmationId: string,
+    @Body({ schema: approveAddressChangeSchema }) body: ApproveAddressChange,
+  ) {
+    if (
+      !(await this.orders.approveAddressChange(
+        customer.id,
+        confirmationId,
+        body.orderId,
+        body.address,
+      ))
+    ) {
+      throw new ForbiddenException('Confirmation is unavailable or expired.');
+    }
+    return { approved: true };
   }
 
   @Get('catalog/search')

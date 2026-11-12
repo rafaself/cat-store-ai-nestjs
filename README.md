@@ -91,6 +91,16 @@ inputs, derives customer identity, checks ownership, and enforces eligible
 order statuses on address updates. The existing public catalog routes remain
 available. HTTP failures fail closed and do not expose upstream response bodies.
 
+Address changes require an explicit confirmation button in the chat. The
+`change-address` tool first proposes the change without mutating the order.
+The Business API stores a five-minute confirmation bound to the authenticated
+customer, order, and exact address. Only the user-facing approval endpoint
+(`POST /agent-tools/address-confirmations/:confirmationId/approve`) can approve
+it; approval is not an agent tool. After approval, the tool supplies the
+confirmation ID when applying the change. The API consumes it atomically with
+the update, rejects unapproved, expired, or reused confirmations, and rechecks
+ownership and eligibility. A textual “yes” alone cannot authorize a change.
+
 For independent production builds, run `pnpm --filter <package>... build`, then
 `pnpm --filter <package> start` for any Nest application. The React app supports
 `pnpm --filter @cat-supplies-store/web build` and `preview`. Configure your reverse

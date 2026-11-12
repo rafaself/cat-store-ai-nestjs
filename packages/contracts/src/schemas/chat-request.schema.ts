@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
-  changeAddressSchema,
+  addressChangeToolInputSchema,
+  addressChangeProposalSchema,
   customerOrderSchema,
   orderIdSchema,
 } from './agent-operations.schema.js';
@@ -55,8 +56,8 @@ const assistantPartSchema = z.union([
   ),
   toolPartSchema(
     'tool-change-address',
-    changeAddressSchema.extend({ orderId: orderIdSchema }).strict(),
-    customerOrderSchema.strict(),
+    addressChangeToolInputSchema,
+    z.union([customerOrderSchema.strict(), addressChangeProposalSchema]),
   ),
   toolPartSchema(
     'tool-search-products',
