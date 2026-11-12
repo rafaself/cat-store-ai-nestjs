@@ -5,6 +5,10 @@
 - You may create and manage Goals autonomously when a task involves multiple steps, iterative execution, or measurable acceptance criteria. Use Goals selectively when they improve focus and progress tracking, without introducing unnecessary overhead for simple tasks.
 - Follow project convetions.
 
+## Database operations
+
+Before adding or changing database operations, read and follow [Database operations policy](packages/database/database-operations.md). It defines how to choose TypeORM repositories, QueryBuilder, and raw SQL, and the required transaction, concurrency, and connection-lifecycle guarantees. Apply it to the work in scope; do not refactor unrelated persistence code merely to standardize syntax.
+
 ## Task completion
 
 Before completing any task that modifies code:
