@@ -1,3 +1,7 @@
+import { ConversationEntity } from './conversations/conversation.entity.js';
+import { ConversationTurnEntity } from './conversations/conversation-turn.entity.js';
+import { ConversationToolExecutionEntity } from './conversations/conversation-tool-execution.entity.js';
+import { ConversationApprovalEntity } from './conversations/conversation-approval.entity.js';
 import type { DataSourceOptions } from 'typeorm';
 import { ProductEntity } from './catalog/catalog.entity.js';
 import { CustomerEntity } from './customers/customer.entity.js';
@@ -16,6 +20,10 @@ export function databaseOptions(options: {
     type: 'postgres',
     url: options.connectionString,
     entities: [
+      ConversationEntity,
+      ConversationTurnEntity,
+      ConversationToolExecutionEntity,
+      ConversationApprovalEntity,
       CustomerEntity,
       OrderEntity,
       PaymentEntity,

@@ -9,3 +9,7 @@ export { PaymentRefundEntity } from './payments/payment-refund.entity.js';
 export { migrationName, up } from './migrations/001-initial-schema.js';
 export { migrateDatabase } from './migrate.js';
 export { createMigratedDataSource } from './create-data-source.js';
+export { ConversationEntity } from './conversations/conversation.entity.js';
+export { ConversationTurnEntity } from './conversations/conversation-turn.entity.js';
+export { ConversationToolExecutionEntity } from './conversations/conversation-tool-execution.entity.js';
+export { ConversationApprovalEntity } from './conversations/conversation-approval.entity.js';
