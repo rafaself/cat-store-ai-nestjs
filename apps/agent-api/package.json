@@ -24,7 +24,8 @@
     "@cat-supplies-store/database": "workspace:*",
     "@nestjs/typeorm": "12.0.2",
     "typeorm": "1.1.1",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "@cat-supplies-store/http": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

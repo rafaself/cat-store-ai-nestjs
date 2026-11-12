@@ -54,6 +54,9 @@
     },
     {
       "path": "./apps/agent-api/tsconfig.app.json"
+    },
+    {
+      "path": "./packages/http/tsconfig.json"
     }
   ]
 }

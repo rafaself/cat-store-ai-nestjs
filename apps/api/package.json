@@ -32,7 +32,8 @@
     "@nestjs/bullmq": "12.0.0",
     "bullmq": "6.5.0",
     "ioredis": "5.11.1",
-    "@cat-supplies-store/refunds": "workspace:*"
+    "@cat-supplies-store/refunds": "workspace:*",
+    "@cat-supplies-store/http": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

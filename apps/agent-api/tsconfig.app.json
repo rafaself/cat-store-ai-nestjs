@@ -19,6 +19,9 @@
     },
     {
       "path": "../../packages/database/tsconfig.json"
+    },
+    {
+      "path": "../../packages/http/tsconfig.json"
     }
   ]
 }

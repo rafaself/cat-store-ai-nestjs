@@ -108,6 +108,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/agent-api/tsconfig.app.json"
       }
+    },
+    "http": {
+      "type": "library",
+      "root": "packages/http",
+      "entryFile": "index",
+      "sourceRoot": "packages/http/src",
+      "compilerOptions": {
+        "tsConfigPath": "packages/http/tsconfig.json"
+      }
     }
   }
 }

@@ -241,6 +241,7 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   TypeORM and runs the migration at startup with the existing migration ledger.
 - `packages/workflow-storage` provides shared workflow configuration and a
   Nest persistence module with a dedicated PostgreSQL pool.
+- `packages/http` provides shared request logging middleware for both HTTP APIs.
 - `packages/refunds` provides the refund workflow, worker execution module,
   and payment persistence services. Its dependency-free `/contract` entry point
   shares the workflow name, version, timeout, and input type with the API. The
@@ -269,6 +270,8 @@ override the minimum level. Messages at that level and higher severity are
 enabled; `log` is Nest's informational level. Existing contextual loggers use
 the same application configuration. No log files or external log service are
 configured.
+
+Both HTTP APIs also use [shared request logging](packages/http/README.md), registered before body parsing. Each response includes a generated `X-Request-Id`. A single structured log records the request ID, method, route pattern, status, duration, and completion or disconnection. Request/response bodies, headers, query strings, and path parameter values are excluded. Streams are logged when they finish or disconnect; detached agent execution continues independently. Successful requests use `log`, 4xx responses and disconnects use `warn`, and 5xx responses use `error`, subject to `LOG_LEVEL`.
 
 ### Chat streaming and resource limits
 
