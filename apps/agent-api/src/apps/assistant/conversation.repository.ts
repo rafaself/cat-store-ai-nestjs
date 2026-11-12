@@ -2,15 +2,18 @@ import {
   ConflictException,
   HttpException,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DataSource, type QueryRunner } from 'typeorm';
+import type { PoolClient } from 'pg';
 import type { ModelMessage, UIMessage } from 'ai';
 import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
 
 export type TurnStatus = 'running' | 'completed' | 'failed' | 'interrupted';
+export type TerminalTurnStatus = Exclude<TurnStatus, 'running'>;
 export interface ConversationTurn {
   id: string;
   conversation_id: string;
@@ -33,11 +36,13 @@ export interface ToolExecution {
 export interface ConversationSession {
   runner: QueryRunner;
   conversationId: string;
-  release(): Promise<void>;
+  signal: AbortSignal;
+  release(originalError?: unknown): Promise<void>;
 }
 
 @Injectable()
 export class ConversationRepository {
+  private readonly logger = new Logger(ConversationRepository.name);
   constructor(private readonly database: DataSource) {}
 
   async create(customerId: string) {
@@ -72,62 +77,113 @@ export class ConversationRepository {
   ): Promise<ConversationSession> {
     await this.assertOwner(conversationId, customerId);
     const runner = this.database.createQueryRunner();
-    await runner.connect();
+    let client: PoolClient;
     try {
-      const [row] = await runner.query(
-        'SELECT pg_try_advisory_lock(hashtextextended($1, 91827)) AS locked',
-        [conversationId],
-      );
-      if (!row.locked)
-        throw new ConflictException('A conversation turn is already active.');
+      client = await runner.connect();
     } catch (error) {
       await runner.release();
       throw error;
     }
-    const session = {
+    const lost = new AbortController();
+    const onLoss = () =>
+      lost.abort(new Error('Conversation database session ended.'));
+    client.on('error', onLoss);
+    client.on('end', onLoss);
+    let locked = false;
+    let lockAttempted = false;
+    let releasing: Promise<void> | undefined;
+    const session: ConversationSession = {
       runner,
       conversationId,
-      release: async () => {
-        try {
-          await runner.query(
-            'SELECT pg_advisory_unlock(hashtextextended($1, 91827))',
-            [conversationId],
-          );
-        } finally {
-          await runner.release();
-        }
-      },
+      signal: lost.signal,
+      release: (originalError?: unknown) =>
+        (releasing ??= (async () => {
+          try {
+            if (runner.isReleased) {
+              if (!lost.signal.aborted)
+                throw new Error(
+                  'Conversation runner was released before cleanup.',
+                );
+            } else {
+              if (runner.isTransactionActive)
+                await runner.rollbackTransaction();
+              if (locked) {
+                const [row] = await runner.query(
+                  'SELECT pg_advisory_unlock(hashtextextended($1, 91827)) AS unlocked',
+                  [conversationId],
+                );
+                if (!row.unlocked)
+                  throw new Error('Conversation lock was not held.');
+              } else if (lockAttempted) {
+                // Acquisition may have succeeded before its response was lost.
+                await client.end();
+              }
+            }
+          } catch (error) {
+            this.logger.error(
+              'Conversation session cleanup failed; closing the connection.',
+              error,
+            );
+            // pg-pool discards ended clients on release. Never return an uncertain
+            // session lock or transaction to the pool, and do not use private ORM APIs.
+            try {
+              await client.end();
+            } catch (closeError) {
+              this.logger.error(
+                'Failed to close the PostgreSQL client.',
+                closeError,
+              );
+            }
+            throw originalError ?? error;
+          } finally {
+            client.removeListener('error', onLoss);
+            client.removeListener('end', onLoss);
+            await runner.release();
+          }
+        })()),
     };
     try {
+      lockAttempted = true;
+      const [row] = await runner.query(
+        'SELECT pg_try_advisory_lock(hashtextextended($1, 91827)) AS locked',
+        [conversationId],
+      );
+      locked = row.locked;
+      lockAttempted = locked;
+      if (!locked)
+        throw new ConflictException('A conversation turn is already active.');
       await this.recover(session);
       return session;
     } catch (error) {
-      await session.release();
+      try {
+        await session.release(error);
+      } catch (cleanupError) {
+        this.logger.error(
+          'Failed to release a rejected conversation session.',
+          cleanupError,
+        );
+      }
       throw error;
     }
   }
 
   private async recover({ runner, conversationId }: ConversationSession) {
     await runner.startTransaction();
-    try {
-      await runner.query(
-        `UPDATE conversation_tool_executions SET status = 'unknown', finished_at = now()
+    await runner.query(
+      `UPDATE conversation_tool_executions SET status = 'unknown', finished_at = now()
         WHERE status = 'running' AND turn_id IN (SELECT id FROM conversation_turns WHERE conversation_id = $1 AND status = 'running')`,
-        [conversationId],
-      );
-      await runner.query(
-        `UPDATE conversation_approvals SET status = 'unknown' WHERE conversation_id = $1 AND status = 'executing'`,
-        [conversationId],
-      );
-      await runner.query(
-        `UPDATE conversation_turns SET status = 'interrupted', finished_at = now() WHERE conversation_id = $1 AND status = 'running'`,
-        [conversationId],
-      );
-      await runner.commitTransaction();
-    } catch (error) {
-      await runner.rollbackTransaction();
-      throw error;
-    }
+      [conversationId],
+    );
+    await runner.query(
+      `UPDATE conversation_approvals SET status = 'unknown' WHERE conversation_id = $1 AND status = 'executing'`,
+      [conversationId],
+    );
+    await runner.query(
+      `UPDATE conversation_turns SET status = 'interrupted', finished_at = now() WHERE conversation_id = $1 AND status = 'running'`,
+      [conversationId],
+    );
+    await runner.commitTransaction();
+    // On failure, acquire() invokes session cleanup to roll back or discard.
   }
 
   turns(
@@ -156,6 +212,48 @@ export class ConversationRepository {
       [conversationId],
     );
   }
+  async snapshot(
+    conversationId: string,
+    customerId: string,
+  ): Promise<{
+    turns: ConversationTurn[];
+    tools: ToolExecution[];
+    approvals: { confirmationId: string; status: string }[];
+  }> {
+    const [row] = await this.database.query(
+      `
+      SELECT
+        COALESCE((SELECT jsonb_agg(t ORDER BY t.sequence)
+          FROM conversation_turns t WHERE t.conversation_id = c.id), '[]'::jsonb) AS turns,
+        COALESCE((SELECT jsonb_agg(e ORDER BY t.sequence, e.created_at, e.tool_call_id)
+          FROM conversation_tool_executions e JOIN conversation_turns t ON t.id = e.turn_id
+          WHERE t.conversation_id = c.id), '[]'::jsonb) AS tools,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('confirmationId', a.confirmation_id, 'status', a.status))
+          FROM conversation_approvals a WHERE a.conversation_id = c.id), '[]'::jsonb) AS approvals
+      FROM conversations c WHERE c.id = $1 AND c.customer_id = $2`,
+      [conversationId, customerId],
+    );
+    if (!row) throw new NotFoundException('Conversation not found.');
+    return row;
+  }
+
+  async previous(
+    session: ConversationSession,
+    requestId: string,
+    input: string,
+    kind: ConversationTurn['kind'],
+  ) {
+    const [previous]: ConversationTurn[] = await session.runner.query(
+      'SELECT * FROM conversation_turns WHERE conversation_id = $1 AND request_id = $2',
+      [session.conversationId, requestId],
+    );
+    if (previous && (previous.input !== input || previous.kind !== kind))
+      throw new ConflictException(
+        'Request ID was already used for different input.',
+      );
+    return previous;
+  }
+
   async begin(
     session: ConversationSession,
     requestId: string,
@@ -163,14 +261,9 @@ export class ConversationRepository {
     kind: ConversationTurn['kind'],
   ) {
     const turns = await this.turns(session.conversationId, session.runner);
-    const previous = turns.find((turn) => turn.request_id === requestId);
-    if (previous) {
-      if (previous.input !== input || previous.kind !== kind)
-        throw new ConflictException(
-          'Request ID was already used for different input.',
-        );
-      return { turn: previous, duplicate: true, history: turns };
-    }
+    session.signal.throwIfAborted();
+    const previous = await this.previous(session, requestId, input, kind);
+    if (previous) return { turn: previous, duplicate: true, history: turns };
     if (
       kind === 'message' &&
       turns.filter((turn) => turn.kind === 'message').length >= 40
@@ -197,14 +290,74 @@ export class ConversationRepository {
   async finish(
     session: ConversationSession,
     turnId: string,
-    status: TurnStatus,
+    status: TerminalTurnStatus,
     messages: ModelMessage[],
     ui: UIMessage,
   ) {
-    await session.runner.query(
-      `WITH unfinished AS (UPDATE conversation_tool_executions SET status = 'unknown', finished_at = now() WHERE turn_id = $1 AND status = 'running') UPDATE conversation_turns SET status = $2, model_messages = $3::jsonb, ui_message = $4::jsonb, finished_at = now() WHERE id = $1 AND status = 'running'`,
-      [turnId, status, JSON.stringify(messages), JSON.stringify(ui)],
+    const rows: { id: string }[] = await session.runner.query(
+      `
+      WITH finished AS (
+        UPDATE conversation_turns
+        SET status = $3, model_messages = $4::jsonb, ui_message = $5::jsonb, finished_at = now()
+        WHERE id = $1 AND conversation_id = $2 AND status = 'running'
+        RETURNING id
+      ), unfinished AS (
+        UPDATE conversation_tool_executions
+        SET status = 'unknown', finished_at = now()
+        WHERE turn_id IN (SELECT id FROM finished) AND status = 'running'
+      )
+      SELECT id FROM finished`,
+      [
+        turnId,
+        session.conversationId,
+        status,
+        JSON.stringify(messages),
+        JSON.stringify(ui),
+      ],
     );
+    if (rows.length !== 1)
+      throw new ConflictException('Turn is missing or already finalized.');
+  }
+
+  async finishApproval(
+    session: ConversationSession,
+    turnId: string,
+    confirmationId: string,
+    status: 'completed' | 'failed',
+    messages: ModelMessage[],
+    ui: UIMessage,
+  ) {
+    try {
+      await session.runner.startTransaction();
+      const result = await session.runner.query(
+        `
+        UPDATE conversation_approvals SET status = $4
+        WHERE confirmation_id = $1 AND conversation_id = $2 AND turn_id = $3 AND status = 'executing'
+        RETURNING confirmation_id`,
+        [
+          confirmationId,
+          session.conversationId,
+          turnId,
+          status === 'completed' ? 'completed' : 'unknown',
+        ],
+        true,
+      );
+      if (result.affected !== 1)
+        throw new ConflictException('Approval is not executing this turn.');
+      await this.finish(session, turnId, status, messages, ui);
+      await session.runner.commitTransaction();
+    } catch (error) {
+      // Roll back before callers attempt failure finalization; if rollback fails,
+      // release() discards the session and recovery resolves the unfinished work.
+      if (session.runner.isTransactionActive) {
+        try {
+          await session.runner.rollbackTransaction();
+        } catch (rollbackError) {
+          this.logger.error('Approval rollback failed.', rollbackError);
+        }
+      }
+      throw error;
+    }
   }
 
   async executeTool<T>(
@@ -215,6 +368,7 @@ export class ConversationRepository {
     input: unknown,
     operation: () => Promise<T>,
   ): Promise<T> {
+    session.signal.throwIfAborted();
     const previous: (ToolExecution & { same_input: boolean })[] =
       await session.runner.query(
         'SELECT *, input = $3::jsonb AS same_input FROM conversation_tool_executions WHERE turn_id = $1 AND tool_call_id = $2',
@@ -235,6 +389,7 @@ export class ConversationRepository {
     );
     let output: T;
     try {
+      session.signal.throwIfAborted();
       output = await operation();
     } catch (error) {
       const status =

@@ -11,7 +11,10 @@ describe('conversation finalization', () => {
     const release = vi.fn(async () => {});
     const turn = { id: crypto.randomUUID() };
     const repo = {
-      acquire: vi.fn(async () => ({ release })),
+      acquire: vi.fn(async () => ({
+        release,
+        signal: new AbortController().signal,
+      })),
       begin: vi.fn(async () => ({ turn, duplicate: false, history: [] })),
       tools: vi.fn(async () => []),
       executeTool: vi.fn((_session, _turn, _call, _name, _input, operation) =>
@@ -70,5 +73,33 @@ describe('conversation finalization', () => {
     await finished;
     expect(repo.finish).toHaveBeenCalledTimes(1);
     expect(release).toHaveBeenCalledTimes(1);
+  });
+  it('bounds approval admission before reserving database connections and releases capacity on failure', async () => {
+    let reject!: (error: Error) => void;
+    const acquisition = new Promise<never>((_resolve, no) => {
+      reject = no;
+    });
+    const repo = { acquire: vi.fn(() => acquisition) };
+    const service = new ConversationService(
+      repo as unknown as ConversationRepository,
+      {} as AssistantService,
+      {} as ChatStreamService,
+      {} as BusinessApiClient,
+    );
+    const submit = () =>
+      service.approve(
+        crypto.randomUUID(),
+        crypto.randomUUID(),
+        crypto.randomUUID(),
+        { customerId: 'cus_123', headers: {} },
+      );
+    const active = Array.from({ length: 5 }, submit);
+    const results = Promise.allSettled(active);
+    await expect(submit()).rejects.toThrow('Approval capacity');
+    expect(repo.acquire).toHaveBeenCalledTimes(5);
+    reject(new Error('Database unavailable'));
+    await results;
+    await expect(submit()).rejects.toThrow('Database unavailable');
+    expect(repo.acquire).toHaveBeenCalledTimes(6);
   });
 });

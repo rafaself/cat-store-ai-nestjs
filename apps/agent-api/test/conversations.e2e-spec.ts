@@ -7,10 +7,7 @@ import {
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import {
-  createMigratedDataSource,
-  databaseOptions,
-} from '@cat-supplies-store/database';
+import { createMigratedDataSource } from '@cat-supplies-store/database';
 import { DataSource } from 'typeorm';
 import * as pg from 'pg';
 import { randomUUID } from 'node:crypto';
@@ -25,6 +22,7 @@ import {
 } from 'vitest';
 import { AssistantModule } from '../src/apps/assistant/assistant.module';
 import { BusinessApiClient } from '../src/integrations/business-api/business-api.client';
+import { buildAgentDatabaseOptions } from '../src/database/database.module';
 import { ConversationRepository } from '../src/apps/assistant/conversation.repository';
 
 // Real PostgreSQL locks/migrations with an offline provider and deterministic business boundary.
@@ -64,7 +62,7 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
   };
   beforeAll(async () => {
     database = await createMigratedDataSource({
-      ...databaseOptions({
+      ...buildAgentDatabaseOptions({
         connectionString: process.env.DATABASE_URL!,
         max: 10,
         connectionTimeoutMillis: 3_000,
@@ -389,13 +387,17 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
       status: 'completed',
       replayed: true,
     });
-    expect((await http(path, { requestId: randomUUID() })).status).toBe(403);
+    const beforeRejected = (await history(id)).turns.length;
+    for (let index = 0; index < 3; index++)
+      expect((await http(path, { requestId: randomUUID() })).status).toBe(403);
+    expect((await history(id)).turns).toHaveLength(beforeRejected);
     expect(business.changeAddress).toHaveBeenCalledTimes(1);
     expect(business.changeAddress).toHaveBeenCalledWith(
       'ord_125',
       '123 New Street',
       proposal.confirmationId,
       expect.objectContaining({ customerId: 'cus_123' }),
+      expect.any(AbortSignal),
     );
   });
   it('rejects expired approvals and model attempts to apply a change', async () => {
@@ -471,8 +473,270 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
       replayed: true,
       status: 'failed',
     });
-    expect((await http(path, { requestId: randomUUID() })).status).toBe(403);
+    const beforeRejected = (await history(id)).turns.length;
+    for (let index = 0; index < 3; index++)
+      expect((await http(path, { requestId: randomUUID() })).status).toBe(403);
+    expect((await history(id)).turns).toHaveLength(beforeRejected);
     expect(business.changeAddress).toHaveBeenCalledTimes(1);
     expect((await history(id)).approvals[0].status).toBe('unknown');
+  });
+  it('bounds statements and lock waits, then releases a reusable session', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const session = await repo.acquire(id, 'cus_123');
+    expect(
+      (await session.runner.query('SHOW statement_timeout'))[0]
+        .statement_timeout,
+    ).toBe('10s');
+    expect(
+      (await session.runner.query('SHOW lock_timeout'))[0].lock_timeout,
+    ).toBe('2s');
+    await session.runner.query("SET statement_timeout = '40ms'");
+    await expect(
+      session.runner.query('SELECT pg_sleep(1)'),
+    ).rejects.toMatchObject({ driverError: { code: '57014' } });
+    await session.runner.query("SET statement_timeout = '10s'");
+    const blocker = database.createQueryRunner();
+    await blocker.connect();
+    try {
+      await blocker.startTransaction();
+      await blocker.query(
+        'SELECT * FROM conversations WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      await session.runner.query("SET lock_timeout = '40ms'");
+      await expect(
+        session.runner.query(
+          'UPDATE conversations SET created_at = now() WHERE id = $1',
+          [id],
+        ),
+      ).rejects.toMatchObject({ driverError: { code: '55P03' } });
+      await session.runner.query("SET lock_timeout = '2s'");
+    } finally {
+      await blocker.rollbackTransaction();
+      await blocker.release();
+      await session.release();
+    }
+    const next = await repo.acquire(id, 'cus_123');
+    await next.release();
+  });
+
+  it('evicts a real pooled connection when unlocking fails, without leaking its lock', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const session = await repo.acquire(id, 'cus_123');
+    const [{ pid }] = await session.runner.query(
+      'SELECT pg_backend_pid() AS pid',
+    );
+    const originalQuery = session.runner.query.bind(session.runner);
+    vi.spyOn(session.runner, 'query').mockImplementation(
+      async (sql, ...args) => {
+        if (String(sql).includes('pg_advisory_unlock'))
+          throw new Error('Injected unlock failure');
+        return originalQuery(sql, ...args);
+      },
+    );
+    await expect(session.release()).rejects.toThrow('Injected unlock failure');
+    expect(
+      await database.query('SELECT pid FROM pg_stat_activity WHERE pid = $1', [
+        pid,
+      ]),
+    ).toEqual([]);
+    const next = await repo.acquire(id, 'cus_123');
+    await next.release();
+  });
+
+  it('rolls back approval and turn finalization together and checks finish invariants', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const session = await repo.acquire(id, 'cus_123');
+    const { turn } = await repo.begin(
+      session,
+      randomUUID(),
+      'Approve',
+      'approval',
+    );
+    const confirmationId = randomUUID();
+    await session.runner.query(
+      `INSERT INTO conversation_approvals(confirmation_id, conversation_id, proposal, status, turn_id) VALUES ($1, $2, '{}', 'executing', $3)`,
+      [confirmationId, id, turn.id],
+    );
+    await session.runner.query(
+      `INSERT INTO conversation_tool_executions(turn_id, tool_call_id, name, input, status) VALUES ($1, 'call', 'apply-address', '{}', 'running')`,
+      [turn.id],
+    );
+    const ui = { id: turn.id, role: 'assistant' as const, parts: [] };
+    const finish = repo.finish.bind(repo);
+    const failure = vi
+      .spyOn(repo, 'finish')
+      .mockImplementationOnce(async (...args) => {
+        await finish(...args);
+        throw new Error('Injected finalization failure');
+      });
+    try {
+      await expect(
+        repo.finishApproval(
+          session,
+          turn.id,
+          confirmationId,
+          'completed',
+          [],
+          ui,
+        ),
+      ).rejects.toThrow('Injected finalization failure');
+      expect((await repo.turns(id))[0]?.status).toBe('running');
+      expect((await repo.approvals(id))[0]?.status).toBe('executing');
+      expect((await repo.tools(id))[0]?.status).toBe('running');
+      failure.mockRestore();
+      await repo.finishApproval(
+        session,
+        turn.id,
+        confirmationId,
+        'completed',
+        [],
+        ui,
+      );
+      expect((await repo.turns(id))[0]?.status).toBe('completed');
+      expect((await repo.approvals(id))[0]?.status).toBe('completed');
+      expect((await repo.tools(id))[0]?.status).toBe('unknown');
+      await expect(
+        repo.finish(session, turn.id, 'failed', [], ui),
+      ).rejects.toThrow('already finalized');
+      await expect(
+        repo.finish(session, randomUUID(), 'completed', [], ui),
+      ).rejects.toThrow('missing');
+    } finally {
+      failure.mockRestore();
+      await session.release();
+    }
+  });
+
+  it('reads one snapshot while another connection commits a turn and tool result', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const query = database.query.bind(database);
+    const delayed = vi
+      .spyOn(database, 'query')
+      .mockImplementation((sql, parameters, runner) => {
+        if (sql.includes('jsonb_agg(t ORDER BY t.sequence)')) {
+          sql =
+            '/* conversation-snapshot-test */ WITH delay AS MATERIALIZED (SELECT pg_sleep(0.3)) ' +
+            sql.replace(
+              'FROM conversations c WHERE',
+              'FROM conversations c CROSS JOIN delay WHERE',
+            );
+        }
+        return query(sql, parameters, runner);
+      });
+    try {
+      const reading = repo.snapshot(id, 'cus_123');
+      await vi.waitFor(async () =>
+        expect(
+          (
+            await query(
+              `SELECT pid FROM pg_stat_activity WHERE query LIKE '/* conversation-snapshot-test */%' AND wait_event = 'PgSleep'`,
+            )
+          ).length,
+        ).toBe(1),
+      );
+      const session = await repo.acquire(id, 'cus_123');
+      try {
+        const { turn } = await repo.begin(
+          session,
+          randomUUID(),
+          'New turn',
+          'message',
+        );
+        await repo.executeTool(
+          session,
+          turn.id,
+          'new-tool',
+          'find-order',
+          {},
+          async () => ({ id: 'ord_123' }),
+        );
+      } finally {
+        await session.release();
+      }
+      const snapshot = await reading;
+      expect(snapshot).toMatchObject({ turns: [], tools: [], approvals: [] });
+    } finally {
+      delayed.mockRestore();
+    }
+    const current = await repo.snapshot(id, 'cus_123');
+    expect(current.turns).toHaveLength(1);
+    expect(current.tools).toHaveLength(1);
+    await expect(repo.snapshot(id, 'cus_456')).rejects.toThrow('not found');
+  });
+
+  it('detects real connection loss during a remote operation and never replays it', async () => {
+    const id = await create();
+    const repo = apps[0]!.get(ConversationRepository);
+    const session = await repo.acquire(id, 'cus_123');
+    const requestId = randomUUID();
+    const { turn } = await repo.begin(
+      session,
+      requestId,
+      'Approve',
+      'approval',
+    );
+    const confirmationId = randomUUID();
+    await session.runner.query(
+      `INSERT INTO conversation_approvals(confirmation_id, conversation_id, proposal, status, turn_id) VALUES ($1, $2, '{}', 'executing', $3)`,
+      [confirmationId, id, turn.id],
+    );
+    let complete!: () => void;
+    const remote = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const pending = repo.executeTool(
+      session,
+      turn.id,
+      'in-flight',
+      'apply-address',
+      {},
+      remote,
+    );
+    const settled = pending.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(remote).toHaveBeenCalledTimes(1));
+    const [{ pid }] = await session.runner.query(
+      'SELECT pg_backend_pid() AS pid',
+    );
+    await database.query('SELECT pg_terminate_backend($1)', [pid]);
+    await vi.waitFor(() => expect(session.signal.aborted).toBe(true));
+    const next = await repo.acquire(id, 'cus_123');
+    try {
+      expect((await repo.turns(id))[0]?.status).toBe('interrupted');
+      expect((await repo.approvals(id))[0]?.status).toBe('unknown');
+      expect((await repo.tools(id))[0]?.status).toBe('unknown');
+      const duplicate = await repo.begin(
+        next,
+        requestId,
+        'Approve',
+        'approval',
+      );
+      expect(duplicate.duplicate).toBe(true);
+      complete();
+      expect(await settled).toBeInstanceOf(Error);
+      const forbiddenOperation = vi.fn(async () => ({}));
+      await expect(
+        repo.executeTool(
+          session,
+          turn.id,
+          'late',
+          'apply-address',
+          {},
+          forbiddenOperation,
+        ),
+      ).rejects.toThrow();
+      expect(forbiddenOperation).not.toHaveBeenCalled();
+      expect(remote).toHaveBeenCalledTimes(1);
+    } finally {
+      await next.release();
+      await session.release();
+    }
   });
 });

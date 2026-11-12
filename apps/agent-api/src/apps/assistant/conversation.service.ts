@@ -2,9 +2,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   PayloadTooLargeException,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ChatRequest } from '@cat-supplies-store/contracts';
 import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
@@ -20,6 +22,9 @@ import { modelContext, toolParts, turnUI } from './conversation-history';
 
 @Injectable()
 export class ConversationService {
+  private readonly logger = new Logger(ConversationService.name);
+  private activeApprovals = 0;
+
   constructor(
     private readonly repository: ConversationRepository,
     private readonly assistant: AssistantService,
@@ -39,7 +44,6 @@ export class ConversationService {
   }
 
   async history(id: string, request: CustomerRequest) {
-    await this.repository.assertOwner(id, this.customer(request));
     // Recover abandoned turns only when no instance is executing this conversation.
     try {
       const session = await this.repository.acquire(id, this.customer(request));
@@ -47,8 +51,10 @@ export class ConversationService {
     } catch (error) {
       if (!(error instanceof ConflictException)) throw error;
     }
-    const turns = await this.repository.turns(id);
-    const tools = await this.repository.tools(id);
+    const { turns, tools, approvals } = await this.repository.snapshot(
+      id,
+      this.customer(request),
+    );
     return {
       id,
       messages: turns.flatMap((turn) =>
@@ -63,7 +69,7 @@ export class ConversationService {
         status: turn.status,
         sequence: turn.sequence,
       })),
-      approvals: await this.repository.approvals(id),
+      approvals,
       active: turns.some((turn) => turn.status === 'running'),
     };
   }
@@ -76,6 +82,7 @@ export class ConversationService {
     const session = await this.repository.acquire(id, this.customer(request));
     let handedOff = false;
     let turnId: string | undefined;
+    let failure: unknown;
     try {
       const { turn, duplicate, history } = await this.repository.begin(
         session,
@@ -125,7 +132,12 @@ export class ConversationService {
       };
       const response = this.streams.open(
         this.customer(request),
-        (signal) => this.assistant.stream(context, caller, signal),
+        (signal) =>
+          this.assistant.stream(
+            context,
+            caller,
+            AbortSignal.any([signal, session.signal]),
+          ),
         async (result, error) => {
           executionClosed = true;
           // Providers may acknowledge abort before an already-started tool settles.
@@ -163,15 +175,23 @@ export class ConversationService {
       handedOff = true;
       return response;
     } catch (error) {
-      if (turnId)
-        await this.repository.finish(session, turnId, 'failed', [], {
-          id: turnId,
-          role: 'assistant',
-          parts: [{ type: 'text', text: 'The response could not be started.' }],
-        });
+      failure = error;
+      if (turnId) {
+        try {
+          await this.repository.finish(session, turnId, 'failed', [], {
+            id: turnId,
+            role: 'assistant',
+            parts: [
+              { type: 'text', text: 'The response could not be started.' },
+            ],
+          });
+        } catch (saveError) {
+          this.logger.error('Failed to record a rejected turn.', saveError);
+        }
+      }
       throw error;
     } finally {
-      if (!handedOff) await session.release();
+      if (!handedOff) await session.release(failure);
     }
   }
 
@@ -181,8 +201,27 @@ export class ConversationService {
     requestId: string,
     request: CustomerRequest,
   ) {
+    if (this.activeApprovals >= 5)
+      throw new ServiceUnavailableException(
+        'Approval capacity is unavailable.',
+      );
+    this.activeApprovals++;
+    try {
+      return await this.applyApproval(id, confirmationId, requestId, request);
+    } finally {
+      this.activeApprovals--;
+    }
+  }
+
+  private async applyApproval(
+    id: string,
+    confirmationId: string,
+    requestId: string,
+    request: CustomerRequest,
+  ) {
     const session = await this.repository.acquire(id, this.customer(request));
     let turnId: string | undefined;
+    let failure: unknown;
     try {
       const [approval] = await session.runner.query(
         'SELECT * FROM conversation_approvals WHERE confirmation_id = $1 AND conversation_id = $2',
@@ -191,20 +230,26 @@ export class ConversationService {
       if (!approval) throw new NotFoundException('Proposal not found.');
       const proposal = addressChangeProposalSchema.parse(approval.proposal);
       const text = `Apply approved address change ${confirmationId}.`;
-      const { turn, duplicate } = await this.repository.begin(
+      const previous = await this.repository.previous(
         session,
         requestId,
         text,
         'approval',
       );
-      if (duplicate)
-        return { turnId: turn.id, status: turn.status, replayed: true };
-      turnId = turn.id;
+      if (previous)
+        return { turnId: previous.id, status: previous.status, replayed: true };
       if (
         approval.status !== 'pending' ||
         Date.parse(proposal.expiresAt) <= Date.now()
       )
         throw new ForbiddenException('Proposal is unavailable or expired.');
+      const { turn } = await this.repository.begin(
+        session,
+        requestId,
+        text,
+        'approval',
+      );
+      turnId = turn.id;
       await session.runner.query(
         `UPDATE conversation_approvals SET status = 'executing', turn_id = $2 WHERE confirmation_id = $1`,
         [confirmationId, turn.id],
@@ -221,6 +266,7 @@ export class ConversationService {
             proposal.orderId,
             proposal.address,
             request,
+            session.signal,
           ),
       );
       const order = await this.repository.executeTool(
@@ -235,16 +281,14 @@ export class ConversationService {
             proposal.address,
             confirmationId,
             request,
+            session.signal,
           ),
       );
-      await session.runner.query(
-        `UPDATE conversation_approvals SET status = 'completed' WHERE confirmation_id = $1`,
-        [confirmationId],
-      );
       const textResult = `Delivery address for order ${order.id} changed to ${order.deliveryAddress}.`;
-      await this.repository.finish(
+      await this.repository.finishApproval(
         session,
         turn.id,
+        confirmationId,
         'completed',
         [{ role: 'assistant', content: textResult }],
         {
@@ -255,25 +299,36 @@ export class ConversationService {
       );
       return { turnId: turn.id, status: 'completed' };
     } catch (error) {
+      failure = error;
       if (turnId) {
-        await session.runner.query(
-          `UPDATE conversation_approvals SET status = 'unknown' WHERE confirmation_id = $1 AND status = 'executing'`,
-          [confirmationId],
-        );
-        await this.repository.finish(session, turnId, 'failed', [], {
-          id: turnId,
-          role: 'assistant',
-          parts: [
+        try {
+          await this.repository.finishApproval(
+            session,
+            turnId,
+            confirmationId,
+            'failed',
+            [],
             {
-              type: 'text',
-              text: 'Unable to confirm the operation outcome. Check the order before trying again.',
+              id: turnId,
+              role: 'assistant',
+              parts: [
+                {
+                  type: 'text',
+                  text: 'Unable to confirm the operation outcome. Check the order before trying again.',
+                },
+              ],
             },
-          ],
-        });
+          );
+        } catch (saveError) {
+          this.logger.error(
+            'Failed to finalize an approval after an error.',
+            saveError,
+          );
+        }
       }
       throw error;
     } finally {
-      await session.release();
+      await session.release(failure);
     }
   }
 }

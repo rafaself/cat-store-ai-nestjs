@@ -106,8 +106,8 @@ export class ChatStreamService implements OnModuleDestroy {
         await delivery;
         await settle(result, failure);
         if (attached) controller!.close();
-      } catch {
-        this.logger.error('Failed to persist a conversation turn.');
+      } catch (error) {
+        this.logger.error('Failed to persist a conversation turn.', error);
         if (attached)
           controller!.error(
             new Error(
