@@ -2,6 +2,7 @@ import type { DataSource } from 'typeorm';
 import * as initial from './migrations/001-initial-schema.js';
 import * as emailDrafts from './migrations/002-email-drafts.js';
 import * as addressConfirmations from './migrations/003-address-change-confirmations.js';
+import * as conversationApprovalIndex from './migrations/006-conversation-approval-index.js';
 import * as conversations from './migrations/005-conversations.js';
 import * as oneRefundPerPayment from './migrations/004-one-refund-per-payment.js';
 
@@ -20,6 +21,7 @@ export async function migrateDatabase(dataSource: DataSource): Promise<void> {
       addressConfirmations,
       oneRefundPerPayment,
       conversations,
+      conversationApprovalIndex,
     ]) {
       const applied = await runner.query(
         'SELECT 1 FROM schema_migrations WHERE name = $1',
