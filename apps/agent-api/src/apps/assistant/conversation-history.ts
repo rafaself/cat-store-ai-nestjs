@@ -27,14 +27,19 @@ export function turnUI(
   const user: UIMessage = {
     id: turn.request_id,
     role: 'user',
-    parts: [{ type: 'text', text: turn.input }],
+    parts: [
+      {
+        type: 'text',
+        text: turn.kind === 'approval' ? 'Confirm address change.' : turn.input,
+      },
+    ],
   };
   if (turn.ui_message) return [user, turn.ui_message];
   const parts = toolParts(tools);
   if (turn.status !== 'running')
     parts.push({
       type: 'text',
-      text: 'The response was interrupted. Completed operations are shown above; check their current state before retrying.',
+      text: 'The response was interrupted. Check the status of any requested changes before retrying.',
     });
   return parts.length
     ? [user, { id: turn.id, role: 'assistant', parts }]

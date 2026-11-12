@@ -19,7 +19,10 @@ import { DataSource } from 'typeorm';
 import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
 import { readUIMessageStream, type UIMessage, type UIMessageChunk } from 'ai';
-import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
+import {
+  addressChangeProposalSchema,
+  addressApprovalSchema,
+} from '@cat-supplies-store/contracts';
 
 function fakeEmbedding(text: string): number[] {
   const vector = Array.from({ length: 1024 }, () => 0);
@@ -170,9 +173,11 @@ describe('Cat store API (e2e)', () => {
         text: 'Find my order ord_123',
       })
       .expect(200);
-    expect(response.text).toContain('tool-output-available');
-    expect(response.text).toContain('ord_123');
+    expect(response.text).toContain('finding-order');
     expect(response.text).toContain('delivered');
+    expect(response.text).not.toMatch(
+      /tool-output|toolCallId|deliveryAddress|ord_123/,
+    );
 
     // Reconstruct the same UIMessage the browser stores from the SSE stream.
     const chunks = response.text
@@ -192,17 +197,12 @@ describe('Cat store API (e2e)', () => {
     })) {
       assistantMessage = message;
     }
-    expect(assistantMessage?.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: 'step-start' }),
-        expect.objectContaining({
-          type: 'tool-find-order',
-          state: 'output-available',
-          input: { orderId: 'ord_123' },
-          output: expect.objectContaining({ id: 'ord_123' }),
-        }),
-      ]),
-    );
+    expect(assistantMessage?.parts).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: 'Your order has been delivered.',
+      }),
+    ]);
     fakeModel.reply('It was delivered to your demo address.');
     const followUp = await request(agent.getHttpServer())
       .post(`/assistant/conversations/${conversationId}/messages`)
@@ -255,8 +255,8 @@ describe('Cat store API (e2e)', () => {
       .expect(200);
     const part = history.body.messages
       .flatMap((message: UIMessage) => message.parts)
-      .find((part: { type: string }) => part.type === 'tool-change-address');
-    const proposal = addressChangeProposalSchema.parse(part.output);
+      .find((part: { type: string }) => part.type === 'data-address-approval');
+    const proposal = addressApprovalSchema.parse(part.data);
     const token = 'Bearer test-customer-token';
     await request(app.getHttpServer())
       .get('/agent-tools/orders/ord_125')
@@ -513,7 +513,28 @@ describe('Cat store API (e2e)', () => {
       .set('Authorization', 'Bearer test-customer-token')
       .send({ requestId: randomUUID(), text: 'Find salmon food' })
       .expect(200);
-    expect(response.text).toContain('prod_sensitive');
+    expect(response.text).toContain('searching-products');
+    expect(response.text).toContain('products.');
+    expect(response.text).not.toMatch(/prod_sensitive|tool-output|toolCallId/);
+    // Search results still reach the model through the server-owned context.
+    expect(fakeModel.lastCall?.options.prompt).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'tool',
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'tool-result',
+              toolName: 'search-products',
+              output: expect.objectContaining({
+                value: expect.arrayContaining([
+                  expect.objectContaining({ id: 'prod_sensitive' }),
+                ]),
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    );
   });
 
   it('rejects an approved refund tool call for a different order owned by the same customer', async () => {

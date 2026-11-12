@@ -8,7 +8,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ChatRequest } from '@cat-supplies-store/contracts';
-import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
+import {
+  addressChangeProposalSchema,
+  conversationHistorySchema,
+} from '@cat-supplies-store/contracts';
 import type { UIMessage } from 'ai';
 import {
   BusinessApiClient,
@@ -18,6 +21,7 @@ import { AssistantService } from './assistant.service';
 import { ChatStreamService } from './chat-stream.service';
 import { ConversationRepository } from './conversation.repository';
 import { modelContext, toolParts, turnUI } from './conversation-history';
+import { publicMessages } from './chat-presentation';
 
 @Injectable()
 export class ConversationService {
@@ -54,12 +58,14 @@ export class ConversationService {
       id,
       this.customer(request),
     );
-    return {
+    return conversationHistorySchema.parse({
       id,
-      messages: turns.flatMap((turn) =>
-        turnUI(
-          turn,
-          tools.filter((tool) => tool.turn_id === turn.id),
+      messages: publicMessages(
+        turns.flatMap((turn) =>
+          turnUI(
+            turn,
+            tools.filter((tool) => tool.turn_id === turn.id),
+          ),
         ),
       ),
       turns: turns.map((turn) => ({
@@ -70,7 +76,7 @@ export class ConversationService {
       })),
       approvals,
       active: turns.some((turn) => turn.status === 'running'),
-    };
+    });
   }
 
   async send(
@@ -149,7 +155,7 @@ export class ConversationService {
             const text =
               result?.text ||
               (error
-                ? 'The response was interrupted. Check completed operations before retrying.'
+                ? 'The response was interrupted. Check the status of any requested changes before retrying.'
                 : '');
             const ui: UIMessage = {
               id: turn.id,
@@ -170,6 +176,7 @@ export class ConversationService {
             await session.release();
           }
         },
+        turn.id,
       );
       handedOff = true;
       return response;

@@ -1,5 +1,17 @@
 import type { UIMessage } from 'ai';
-import { chatRequestSchema } from '@cat-supplies-store/contracts';
+import {
+  chatRequestSchema,
+  type ChatActivity,
+  type AddressApproval,
+} from '@cat-supplies-store/contracts';
+export type { ConversationHistory } from '@cat-supplies-store/contracts';
+export type ChatUIMessage = UIMessage<
+  unknown,
+  {
+    activity: ChatActivity;
+    'address-approval': AddressApproval;
+  }
+>;
 
 export function prepareChatRequest(messages: UIMessage[]) {
   const message = messages.at(-1);
@@ -12,11 +24,4 @@ export function prepareChatRequest(messages: UIMessage[]) {
       .map((part) => part.text)
       .join(''),
   });
-}
-export interface ConversationHistory {
-  id: string;
-  messages: UIMessage[];
-  active: boolean;
-  approvals: { confirmationId: string; status: string }[];
-  turns: { id: string; requestId: string; status: string; sequence: number }[];
 }

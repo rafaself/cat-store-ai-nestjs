@@ -2,6 +2,8 @@
 
 Import [agent-api.insomnia.json](agent-api.insomnia.json) using **Import → File** in Insomnia. The file uses the supported Insomnia JSON v4 import format and includes 22 requests. No real credentials are included.
 
+History now contains display text and explicit `data-address-approval` parts. The stream sends transient `data-activity` codes for the UI and excludes raw tool calls/results. The history requests capture pending approval IDs from the public approval parts.
+
 ## Setup
 
 1. Configure the root `.env` as described in the project README, including provider credentials, a valid workflow encryption key, and distinct customer/support demo tokens. Preserve an existing workflow key when reusing encrypted workflow data.

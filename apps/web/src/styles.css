@@ -288,7 +288,7 @@ button:disabled {
   gap: 0.28rem;
   margin: 0.5rem 0 1rem 2.9rem;
 }
-.typing-indicator > span:not(.sr-only) {
+.typing-indicator > .typing-dot {
   width: 0.32rem;
   height: 0.32rem;
   border-radius: 50%;
@@ -300,6 +300,11 @@ button:disabled {
 }
 .typing-indicator > span:nth-child(3) {
   animation-delay: 240ms;
+}
+.activity-label {
+  margin-left: 0.4rem;
+  color: #b8b2c9;
+  font-size: 0.85rem;
 }
 @keyframes typing {
   0%,

@@ -7,6 +7,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { AssistantService } from './assistant.service';
+import { randomUUID } from 'node:crypto';
+import { createUIMessageStreamResponse } from 'ai';
+import { publicChatStream } from './chat-presentation';
 
 export const CHAT_STREAM_LIMITS = {
   perCustomer: 1,
@@ -31,6 +34,7 @@ export class ChatStreamService implements OnModuleDestroy {
       result: Result | undefined,
       error: unknown,
     ) => Promise<void> = async () => {},
+    messageId: string = randomUUID(),
   ) {
     if (this.stopping || this.active.size >= CHAT_STREAM_LIMITS.perProcess)
       throw new ServiceUnavailableException('Chat capacity is unavailable.');
@@ -66,8 +70,9 @@ export class ChatStreamService implements OnModuleDestroy {
     // Drain independently of the client. A slow reader is detached at 256 KiB.
     const delivery = (async () => {
       try {
-        const source = generation.toUIMessageStreamResponse({
-          errorText: () => 'An error occurred while generating a response.',
+        const source = createUIMessageStreamResponse({
+          stream: publicChatStream(generation.toUIMessageStream(), messageId),
+          keepAliveMs: 15_000,
         });
         const reader = source.body!.getReader();
         try {

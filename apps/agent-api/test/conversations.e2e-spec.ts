@@ -201,12 +201,20 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     );
     const first = await send(id, 'Find my order');
     expect(first.status).toBe(200);
-    expect(await first.text()).toContain('tool-output-available');
+    const streamed = await first.text();
+    expect(streamed).toContain('finding-order');
+    expect(streamed).not.toMatch(
+      /tool-output|toolCallId|deliveryAddress|Original address/,
+    );
     let saved = await history(id);
     expect(saved.turns[0].status).toBe('completed');
-    expect(saved.messages[1].parts).toContainEqual(
+    expect(saved.messages[1].parts).toEqual([
+      { type: 'text', text: 'Your order arrived.' },
+    ]);
+    expect(await apps[0]!.get(ConversationRepository).tools(id)).toContainEqual(
       expect.objectContaining({
-        type: 'tool-find-order',
+        name: 'find-order',
+        status: 'completed',
         output: expect.objectContaining({ id: 'ord_123' }),
       }),
     );
@@ -253,7 +261,16 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     const requestId = randomUUID();
     const first = await send(id, 'Find', requestId);
     await vi.waitFor(() => expect(business.findOrder).toHaveBeenCalledTimes(1));
-    await first.body!.cancel();
+    const reader = first.body!.getReader();
+    let progress = '';
+    const decoder = new TextDecoder();
+    while (!progress.includes('finding-order')) {
+      const chunk = await reader.read();
+      expect(chunk.done).toBe(false);
+      progress += decoder.decode(chunk.value, { stream: true });
+    }
+    expect(progress).not.toMatch(/toolCallId|toolName|orderId|ord_123/);
+    await reader.cancel();
     expect((await send(id, 'Overlapping', randomUUID(), 1)).status).toBe(409);
     expect((await send(id, 'Find', requestId, 1)).status).toBe(409);
     expect((await history(id)).active).toBe(true);
@@ -270,11 +287,11 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     const saved = await history(id);
     expect(saved.turns).toHaveLength(1);
     expect(saved.turns[0].status).toBe('completed');
-    expect(saved.messages[1].parts).toContainEqual(
-      expect.objectContaining({
-        type: 'tool-find-order',
-        state: 'output-available',
-      }),
+    expect(saved.messages[1].parts).toEqual([
+      { type: 'text', text: 'Saved after disconnect' },
+    ]);
+    expect(await apps[0]!.get(ConversationRepository).tools(id)).toContainEqual(
+      expect.objectContaining({ name: 'find-order', status: 'completed' }),
     );
   });
   it('recovers abandoned executions without replaying uncertain tools', async () => {
@@ -341,9 +358,16 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     const saved = await history(id);
     expect(saved.turns[0].status).toBe('failed');
     expect(saved.messages[1].parts).toContainEqual(
+      expect.objectContaining({ type: 'text' }),
+    );
+    expect(JSON.stringify(saved)).not.toMatch(
+      /tool-find-order|deliveryAddress|Original address|private provider/,
+    );
+    expect(await apps[0]!.get(ConversationRepository).tools(id)).toContainEqual(
       expect.objectContaining({
-        type: 'tool-find-order',
-        state: 'output-available',
+        name: 'find-order',
+        status: 'completed',
+        output: expect.objectContaining({ id: 'ord_123' }),
       }),
     );
   });
@@ -363,8 +387,8 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     await (await send(id, 'Change address')).text();
     const saved = await history(id);
     const proposal = saved.messages[1].parts.find(
-      (part: { type: string }) => part.type === 'tool-change-address',
-    ).output;
+      (part: { type: string }) => part.type === 'data-address-approval',
+    ).data;
     expect(business.changeAddress).not.toHaveBeenCalled();
     const otherConversation = await create();
     expect(
@@ -383,6 +407,16 @@ describe('server-owned conversations (PostgreSQL, offline model)', () => {
     );
     const approved = await http(path, { requestId });
     expect(approved.status).toBe(201);
+    const approvedHistory = await history(id);
+    expect(approvedHistory.messages).toContainEqual(
+      expect.objectContaining({
+        role: 'user',
+        parts: [{ type: 'text', text: 'Confirm address change.' }],
+      }),
+    );
+    expect(JSON.stringify(approvedHistory)).not.toMatch(
+      /Apply approved address change|approve-address|apply-address|toolCallId/,
+    );
     expect(await (await http(path, { requestId })).json()).toMatchObject({
       status: 'completed',
       replayed: true,

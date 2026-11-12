@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { UIMessageChunk } from 'ai';
 import type { AssistantService } from './assistant.service';
 import { CHAT_STREAM_LIMITS, ChatStreamService } from './chat-stream.service';
 type Generation = ReturnType<AssistantService['stream']>;
@@ -9,10 +10,10 @@ function fixture() {
     resolve = yes;
     reject = no;
   });
-  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  let controller!: ReadableStreamDefaultController<UIMessageChunk>;
   let signal!: AbortSignal;
   const cancel = vi.fn();
-  const body = new ReadableStream<Uint8Array>({
+  const body = new ReadableStream<UIMessageChunk>({
     start(value) {
       controller = value;
     },
@@ -22,7 +23,7 @@ function fixture() {
     signal = value;
     return {
       result,
-      toUIMessageStreamResponse: () => new Response(body),
+      toUIMessageStream: () => body,
     } as unknown as Generation;
   };
   return {
@@ -50,7 +51,7 @@ describe('detached chat execution lifecycle', () => {
     expect(() => service.open('one', fixture().start)).toThrow(
       'already active',
     );
-    run.controller.enqueue(new TextEncoder().encode('data: reply\n\n'));
+    run.controller.enqueue({ type: 'text-delta', id: 'text', delta: 'reply' });
     run.controller.close();
     run.resolve();
     await vi.waitFor(() => expect(settle).toHaveBeenCalledTimes(1));
@@ -78,7 +79,11 @@ describe('detached chat execution lifecycle', () => {
     const service = new ChatStreamService();
     const run = fixture();
     const response = service.open('one', run.start);
-    run.controller.enqueue(new Uint8Array(300_000));
+    run.controller.enqueue({
+      type: 'text-delta',
+      id: 'text',
+      delta: 'x'.repeat(300_000),
+    });
     await expect(response.text()).rejects.toThrow('Reload');
     expect(run.signal.aborted).toBe(false);
     run.controller.close();

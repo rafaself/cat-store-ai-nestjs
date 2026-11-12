@@ -67,3 +67,14 @@ export {
   type CustomerOrder,
   type ChangeAddress,
 } from './schemas/agent-operations.schema.js';
+export {
+  chatActivitySchema,
+  chatActivityLabels,
+  addressApprovalSchema,
+  publicChatMessageSchema,
+  conversationHistorySchema,
+  type ChatActivity,
+  type AddressApproval,
+  type PublicChatMessage,
+  type ConversationHistory,
+} from './schemas/conversation.schema.js';

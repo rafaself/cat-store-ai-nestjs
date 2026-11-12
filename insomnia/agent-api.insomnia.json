@@ -268,7 +268,7 @@
         "disabled": false
       },
       "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');",
-      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'tool-change-address' && p.state === 'output-available'\n    && p.output && pending.has(p.output.confirmationId) && Date.parse(p.output.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.output.confirmationId : '');\n}\n",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'data-address-approval'\n    && p.data && pending.has(p.data.confirmationId) && Date.parse(p.data.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.data.confirmationId : '');\n}\n",
       "metaSortKey": 7,
       "isPrivate": false,
       "settingStoreCookies": false,
@@ -476,7 +476,7 @@
         "disabled": false
       },
       "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');",
-      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'tool-change-address' && p.state === 'output-available'\n    && p.output && pending.has(p.output.confirmationId) && Date.parse(p.output.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.output.confirmationId : '');\n}\n",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'data-address-approval'\n    && p.data && pending.has(p.data.confirmationId) && Date.parse(p.data.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.data.confirmationId : '');\n}\n",
       "metaSortKey": 13,
       "isPrivate": false,
       "settingStoreCookies": false,

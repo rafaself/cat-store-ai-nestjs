@@ -4,8 +4,15 @@ import { DefaultChatTransport } from 'ai';
 import {
   prepareChatRequest,
   type ConversationHistory,
+  type ChatUIMessage,
 } from './chat-request.js';
-import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
+import {
+  addressApprovalSchema,
+  chatActivitySchema,
+  chatActivityLabels,
+  conversationHistorySchema,
+  type ChatActivity,
+} from '@cat-supplies-store/contracts';
 
 const authHeaders = {
   Authorization: `Bearer ${import.meta.env.VITE_DEMO_CUSTOMER_TOKEN ?? ''}`,
@@ -22,7 +29,7 @@ export default function App() {
   const [loading, setLoading] = useState(Boolean(conversationId));
   const transport = useMemo(
     () =>
-      new DefaultChatTransport({
+      new DefaultChatTransport<ChatUIMessage>({
         headers: authHeaders,
         prepareSendMessagesRequest: ({ messages }) => {
           if (!conversationRef.current)
@@ -55,6 +62,9 @@ export default function App() {
     {},
   );
   const [confirmationError, setConfirmationError] = useState('');
+  const [activity, setActivity] = useState<ChatActivity['activity'] | null>(
+    null,
+  );
   const {
     messages,
     sendMessage,
@@ -63,13 +73,22 @@ export default function App() {
     stop,
     setMessages,
     clearError,
-  } = useChat({
+  } = useChat<ChatUIMessage>({
     transport,
     generateId: () => crypto.randomUUID(),
+    dataPartSchemas: {
+      activity: chatActivitySchema,
+      'address-approval': addressApprovalSchema,
+    },
+    onData: (part) => {
+      if (part.type === 'data-activity') setActivity(part.data.activity);
+    },
     onFinish: () => {
+      setActivity(null);
       void recoverHistory();
     },
     onError: () => {
+      setActivity(null);
       void recoverHistory();
     },
   });
@@ -84,7 +103,9 @@ export default function App() {
         headers: authHeaders,
       });
       if (!response.ok) throw new Error('Unable to load conversation history.');
-      const history: ConversationHistory = await response.json();
+      const history: ConversationHistory = conversationHistorySchema.parse(
+        await response.json(),
+      );
       if (conversationRef.current !== id) return;
       setMessages(history.messages);
       setApprovalStates(
@@ -181,6 +202,7 @@ export default function App() {
     if (!text || isBusy || confirming !== null) return;
 
     setInput('');
+    setActivity('thinking');
     clearError();
     setLoading(true);
     try {
@@ -223,6 +245,7 @@ export default function App() {
                 setMessages([]);
                 clearError();
                 setApprovalStates({});
+                setActivity(null);
                 setConfirmationError('');
               }}
               disabled={isBusy || confirming !== null}
@@ -284,6 +307,13 @@ export default function App() {
                   .filter((part) => part.type === 'text')
                   .map((part) => (part.type === 'text' ? part.text : ''))
                   .join('');
+                if (
+                  !text &&
+                  !message.parts.some(
+                    (part) => part.type === 'data-address-approval',
+                  )
+                )
+                  return null;
 
                 return (
                   <article
@@ -300,13 +330,10 @@ export default function App() {
                       <p className="message-text">{text}</p>
                       {message.role === 'assistant' &&
                         message.parts.map((part, index) => {
-                          if (
-                            part.type !== 'tool-change-address' ||
-                            part.state !== 'output-available'
-                          )
+                          if (part.type !== 'data-address-approval')
                             return null;
-                          const parsed = addressChangeProposalSchema.safeParse(
-                            part.output,
+                          const parsed = addressApprovalSchema.safeParse(
+                            part.data,
                           );
                           if (!parsed.success) return null;
                           const proposal = parsed.data;
@@ -353,12 +380,14 @@ export default function App() {
                   </article>
                 );
               })}
-              {status === 'submitted' && (
+              {(status === 'submitted' || status === 'streaming') && (
                 <div className="typing-indicator" role="status">
-                  <span />
-                  <span />
-                  <span />
-                  <span className="sr-only">Assistant is thinking</span>
+                  <span className="typing-dot" aria-hidden="true" />
+                  <span className="typing-dot" aria-hidden="true" />
+                  <span className="typing-dot" aria-hidden="true" />
+                  <span className="activity-label">
+                    {chatActivityLabels[activity ?? 'thinking']}
+                  </span>
                 </div>
               )}
             </div>
