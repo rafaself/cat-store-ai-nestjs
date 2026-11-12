@@ -89,18 +89,16 @@ pnpm dev
 
 This starts all four applications. The Business API listens on `PORT` (default
 `3000`), and the Agent API on `AGENT_API_PORT` (default `3001`). Both expose
-`GET /health`. The Agent API serves authenticated streaming `POST /assistant/chat`.
+`GET /health`. The Agent API serves authenticated conversations under `/assistant/conversations`.
 The Business API serves public `GET /catalog/search?q=...`, support-only
 `POST /catalog/index`, customer-authenticated `POST /refunds`, and support-only
 refund approval routes under `/refunds/:runId/approvals`. The Vite server proxies
-`/api/*` to the Business API and `/agent-api/*` to the Agent API. Chat accepts text-only conversations with up to 40 messages
-and is limited to 10 requests per minute per client IP.
+`/api/*` to the Business API and `/agent-api/*` to the Agent API. Message submission accepts only a UUID `requestId` and `text` (1–4,000 characters). It is limited to 10 requests per minute per client IP; history reads allow 120 per minute for recovery polling.
 
 ### Agent-to-business boundary
 
 Set `BUSINESS_API_URL` on the Agent API to the reachable Business API origin
-(default `http://127.0.0.1:3000`). Agent API does not need database, Redis,
-Mailpit, workflow encryption, or demo token configuration. It validates chat
+(default `http://127.0.0.1:3000`). Agent API requires `DATABASE_URL` for conversation storage. It does not need Redis, Mailpit, workflow encryption, or demo token configuration. It validates chat
 credentials through `GET /agent-tools/customer` before starting a model call.
 The typed client forwards the original Authorization header to the Business API;
 it never sends a customer ID selected by the model.
@@ -115,10 +113,7 @@ available. HTTP failures fail closed and do not expose upstream response bodies.
 Address changes require an explicit confirmation button in the chat. The
 `change-address` tool first proposes the change without mutating the order.
 The Business API stores a five-minute confirmation bound to the authenticated
-customer, order, and exact address. Only the user-facing approval endpoint
-(`POST /agent-tools/address-confirmations/:confirmationId/approve`) can approve
-it; approval is not an agent tool. After approval, the tool supplies the
-confirmation ID when applying the change. The API consumes it atomically with
+customer, order, and exact address. Only the dedicated Agent API approval endpoint can approve and apply the stored proposal through the Business API; approval and execution are not model tools. The API consumes it atomically with
 the update, rejects unapproved, expired, or reused confirmations, and rechecks
 ownership and eligibility. A textual “yes” alone cannot authorize a change.
 
@@ -273,10 +268,22 @@ configured.
 
 ### Chat streaming and resource limits
 
-The Agent API returns a web-standard `Response` for `POST /assistant/chat`, using NestJS 12.4+ native streaming and the AI SDK UI message protocol. The browser transport and tool events stay compatible. Authentication, request validation and capacity rejection happen before generation; asynchronous generation failures are sanitized UI error events, including failures before model content arrives. Nest handles response delivery and disconnect cancellation.
+The Agent API owns conversation history in PostgreSQL. Run the normal migrations before deploying; startup also applies pending migrations with the existing migration lock. Migration `005-conversations` adds customer-owned conversations, ordered turns (user text, model messages and UI snapshots), tool executions, and approval state. Existing browser-only chats are not imported.
 
-Each chat allows four model calls, with the existing 800-output-token limit per call. A two-minute deadline covers generation and response-body delivery. Capacity is limited to one active chat per authenticated customer and 20 per Agent API process, with no waiting queue. A customer's identity comes from the Business API authentication response. Customer saturation returns 429; process saturation or shutdown returns 503. Slots remain held until both generation settles and the response body finishes or is cancelled. Slow or stalled clients are cancelled at the deadline; shutdown aborts active chats. The deadline ends the HTTP stream abruptly, so clients must treat a transport failure as incomplete output.
+- `POST /assistant/conversations` with `{}` creates a conversation.
+- `GET /assistant/conversations` lists the customer's latest 50 conversations.
+- `GET /assistant/conversations/:conversationId` returns UI messages, turn statuses, approval states and whether a turn is active.
+- `POST /assistant/conversations/:conversationId/messages` accepts exactly `{ "requestId": "<UUID>", "text": "Hello" }` and streams an AI SDK UI response.
+- `POST /assistant/conversations/:conversationId/approvals/:confirmationId` accepts exactly `{ "requestId": "<UUID>" }`. It approves and applies the stored proposal through the Business API, without model interpretation or client-supplied order/address fields.
 
-These are initial operational limits, not throughput or memory guarantees. They are local to each process: multiple replicas multiply the total capacity and need shared admission control if a deployment-wide limit is required. The installed `@nestjs/ai` retains generation chunks for replay and final results; native HTTP backpressure does not remove that retention or pause its producer. Output tokens do not cap tool-result bytes. Strict memory bounds would require bounded single-consumer streaming upstream and explicit tool-payload limits. Do not add replay consumers or background copies of the response stream.
+All routes authenticate through the Business API and check conversation ownership. Unexpected request fields are rejected. HTTP JSON and form bodies are limited to 100 KiB before validation. Assistant messages, tool calls/results and customer identity are never accepted as message input. Model context comes only from persisted server records. Stored history is data, not authorization: the Business API checks current customer ownership, eligibility, exact approved address, expiry and single-use consumption on every mutation. Address tool schemas stay internal; the model can propose an address change but cannot approve or apply one.
 
-Offline tests cover protocol events, tool calls, errors, real HTTP disconnects before and during content, admission, deadline expiry for a stalled reader and shutdown. They do not establish live-provider throughput or a production memory ceiling. Run `pnpm test` for this coverage, and `pnpm test:e2e` with the documented local services for full Business API tool round trips.
+A request ID is scoped to a conversation. Once accepted it is never executed again, including after failure or interruption. Reusing it with different input returns 409. A completed duplicate returns JSON `{ turnId, status, replayed: true }`; retrieve history for the result. While a turn is active, further submissions (including retries) return 409 and clients should poll history. No chunk-level stream resumption or automatic execution retry is provided.
+
+PostgreSQL session advisory locks serialize each conversation across Agent API instances. Generation holds one connection, but no database transaction. A unique running-turn index is an additional safeguard. On connection/process loss the next successful lock holder marks unfinished turns interrupted and unfinished operations unknown; it never replays them. Tool starts and completed results are persisted independently of model completion. A remote operation and its journal write cannot be atomic: if the remote outcome is uncertain, it is shown as unknown and must be checked before a new attempt. Single-use address confirmations still prevent repeated mutations at the Business API boundary. Use direct PostgreSQL connections or session pooling; transaction-pooling proxies are incompatible with these session locks.
+
+Browser disconnects stop delivery, not execution. The server drains generation, saves its result and releases admission after persistence. The frontend stores the conversation ID locally and reloads server history on startup, completion, errors and disconnects. Stop means stop receiving; active execution is recovered by polling. Partial text is not checkpointed token by token; after a process crash history recovers completed operations and an interrupted status. Slow readers detach once their response queue exceeds 256 KiB. The installed AI library also retains its generation chunks internally, so this queue bound is not a total memory guarantee.
+
+Each generation allows four model calls and a two-minute execution deadline. Per-process limits remain one generation per customer and 20 total (429/503 on saturation); cross-instance serialization is per conversation. The Agent API connection pool allows 30 connections, including the connections held by generations. Conversations allow 40 model turns and a 100,000-character serialized model-context limit; start a new conversation when full. Explicit approvals remain available at that limit. Shutdown aborts and waits for active generation finalization. A crashed process is recovered on the next conversation access; there is no background executor or automatic provider retry after a crash.
+
+Offline unit tests cover strict contracts, byte limits, detached delivery, capacity, deadlines and shutdown. PostgreSQL integration tests cover ownership, idempotency, cross-instance exclusion, tool journaling, interrupted execution recovery, dedicated approvals and multi-turn context. Run `pnpm test` and `pnpm test:e2e` with the documented local services. These checks do not establish live-provider behavior or a production throughput/memory ceiling.
