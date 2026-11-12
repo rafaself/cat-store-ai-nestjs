@@ -17,6 +17,8 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       AWS_REGION: process.env.AWS_REGION ?? 'us-east-1',
+      BEDROCK_MODEL_DEFAULT: 'test-model',
+      BEDROCK_EMBEDDING_MODEL_DEFAULT: 'test-embedding',
       DATABASE_URL:
         process.env.DATABASE_URL ??
         'postgresql://chatbot:chatbot@127.0.0.1:15432/chatbot_test',

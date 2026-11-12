@@ -16,13 +16,36 @@ function createBedrockProvider(config: BedrockConfig) {
   });
 }
 
+function buildModels(
+  config: BedrockConfig,
+  bedrock: ReturnType<typeof createAmazonBedrock>,
+): NonNullable<AiModuleOptions['models']> {
+  return Object.fromEntries(
+    Object.entries(config.models).map(([name, modelId]) => [
+      name,
+      bedrock(modelId),
+    ]),
+  );
+}
+
+function buildEmbeddingModels(
+  config: BedrockConfig,
+  bedrock: ReturnType<typeof createAmazonBedrock>,
+): NonNullable<AiModuleOptions['embeddingModels']> {
+  return Object.fromEntries(
+    Object.entries(config.embeddingModels).map(([name, modelId]) => [
+      name,
+      bedrock.embedding(modelId),
+    ]),
+  );
+}
+
 export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
   const bedrock = createBedrockProvider(config);
+
   return {
-    models: { default: bedrock(config.modelId) },
-    embeddingModels: {
-      default: bedrock.embedding(config.embeddingModelId),
-    },
+    models: buildModels(config, bedrock),
+    embeddingModels: buildEmbeddingModels(config, bedrock),
     defaults: config.defaults,
     embeddingDefaults: config.embeddingDefaults,
   };
@@ -31,8 +54,9 @@ export function buildAiOptions(config: BedrockConfig): AiModuleOptions {
 // The business API only registers embeddings for catalog search/indexing.
 export function buildEmbeddingOptions(config: BedrockConfig): AiModuleOptions {
   const bedrock = createBedrockProvider(config);
+
   return {
-    embeddingModels: { default: bedrock.embedding(config.embeddingModelId) },
+    embeddingModels: buildEmbeddingModels(config, bedrock),
     embeddingDefaults: config.embeddingDefaults,
   };
 }

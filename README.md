@@ -3,16 +3,16 @@
 A cat-store support example with a React frontend, separate NestJS business/agent APIs, and Turborepo
 workspace. It demonstrates support email triage and drafting, invoice extraction,
 customer-scoped order tools, durable refund approvals, and product semantic
-search. Text generation uses GPT-6 Luna through Amazon Bedrock; product vectors
-use Amazon Titan Text Embeddings v2.
+search. Text generation uses configurable models through Amazon Bedrock; product vectors
+use a configurable embedding model (Amazon Titan Text Embeddings v2 in the example).
 
 ## Prerequisites
 
 - Node.js 24 LTS (24.15.0 or newer in the 24.x line)
 - pnpm 12.6.0
 - Docker Compose with the Docker Compose plugin
-- Bedrock access to the `us.openai.gpt-6-luna` inference profile and Titan
-  embeddings in the configured AWS region for live AI requests
+- Bedrock access to the configured language and embedding models in the
+  configured AWS region for live AI requests
 
 The repository pins pnpm through `packageManager` and declares its supported
 Node.js range in `package.json`.
@@ -27,10 +27,24 @@ cp .env.example .env
 The APIs and Agent Worker read `.env` into their configuration without changing
 `process.env`. Values already present in the process environment take precedence.
 
-The Agent API and Agent Worker share the Nest AI text model `default`, configured through
-`createAmazonBedrock` with `us.openai.gpt-6-luna`. `AWS_REGION` defaults to `us-east-1`.
-The embedding registry's `default` model is Amazon Titan Text Embeddings v2,
-which returns 1024-dimensional vectors. Set `AWS_BEARER_TOKEN_BEDROCK` in
+The Agent API and Agent Worker register every `BEDROCK_MODEL_*` environment
+variable as a named Nest AI language model. `BEDROCK_MODEL_DEFAULT` is required
+and has no fallback; `.env.example` supplies an example model ID. Add entries
+such as `BEDROCK_MODEL_FAST` or `BEDROCK_MODEL_FAST_REASONING` to register `fast`
+or `fast_reasoning`. Suffixes must match `[A-Z][A-Z0-9_]*`; model IDs must be
+nonblank. Existing services select `default`; additional models can be selected
+by alias in backend calls. Changes take effect after a restart. All models share
+the AWS credentials and `AWS_REGION`, which defaults to `us-east-1`.
+Embedding models are independently registered through
+`BEDROCK_EMBEDDING_MODEL_*` with the same suffix validation and lowercase alias
+rules. `BEDROCK_EMBEDDING_MODEL_DEFAULT` is required with no fallback;
+`.env.example` selects Amazon Titan Text Embeddings v2. For example,
+`BEDROCK_EMBEDDING_MODEL_SEARCH_V2` registers the embedding alias `search_v2`.
+Both default variables are required in all Nest applications. Catalog indexing
+and search use the embedding alias `default`, which must produce 1024-dimensional
+vectors. Changing that model requires rebuilding all stored product embeddings
+before searching with the new model, even if vector dimensions match.
+Set `AWS_BEARER_TOKEN_BEDROCK` in
 `.env`, or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for SigV4
 authentication (also set `AWS_SESSION_TOKEN` when using temporary credentials).
 Chat, email AI services, product indexing, and product search need Bedrock

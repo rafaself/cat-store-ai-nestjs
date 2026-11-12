@@ -25,6 +25,10 @@ describe('configuration without environment mutations', () => {
         [
           'DATABASE_URL=postgresql://test:test@file-host:5432/file-db',
           'AWS_REGION=us-west-2',
+          'BEDROCK_MODEL_DEFAULT=file-default-model',
+          'BEDROCK_MODEL_FAST=file-fast-model',
+          'BEDROCK_EMBEDDING_MODEL_DEFAULT=file-embedding-model',
+          'BEDROCK_EMBEDDING_MODEL_SEARCH_V2=file-search-model',
           'AWS_BEARER_TOKEN_BEDROCK=file-token',
           'REDIS_PORT=17379',
           'NODE_ENV=production',
@@ -32,7 +36,11 @@ describe('configuration without environment mutations', () => {
           'WORKFLOWS_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
         ].join('\n'),
       );
-      const environment = readEnvironment(envFile, { AWS_REGION: 'eu-west-1' });
+      const environment = readEnvironment(envFile, {
+        AWS_REGION: 'eu-west-1',
+        BEDROCK_MODEL_DEFAULT: 'ambient-default-model',
+        BEDROCK_EMBEDDING_MODEL_DEFAULT: 'ambient-embedding-model',
+      });
       const config = validateEnvironment(environment);
       const database = createDatabaseConfig(config.database);
       const bedrock = createBedrockConfig(config.bedrock);
@@ -55,6 +63,11 @@ describe('configuration without environment mutations', () => {
         expect(module.get(bedrock.KEY)).toMatchObject({
           region: 'eu-west-1',
           bearerToken: 'file-token',
+          models: { default: 'ambient-default-model', fast: 'file-fast-model' },
+          embeddingModels: {
+            default: 'ambient-embedding-model',
+            search_v2: 'file-search-model',
+          },
         });
         expect(module.get(queue.KEY)).toMatchObject({ port: 17379 });
         expect(module.get(ConfigService).get('workflows.encryptionKey')).toBe(

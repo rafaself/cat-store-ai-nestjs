@@ -14,9 +14,7 @@ export interface RuntimeConfig {
   workflows: WorkflowConfig;
 }
 
-export function validateEnvironment(
-  env: Record<string, unknown>,
-): RuntimeConfig {
+export function validateEnvironment(env: NodeJS.ProcessEnv): RuntimeConfig {
   return {
     api: loadApiConfig(env),
     logger: loadLoggerConfig(env),
