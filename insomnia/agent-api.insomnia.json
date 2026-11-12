@@ -1,0 +1,790 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-11-12T00:00:00.000Z",
+  "__export_source": "cat-store-agent-api",
+  "resources": [
+    {
+      "_id": "__WORKSPACE_ID__",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Cat Store — Agent API",
+      "description": "Local conversation API. Start the services, set customer_token, then create a conversation and send a message. Live chat calls use the configured paid provider. Approval requests change the stored order address; run deliberately, not as a bulk collection.",
+      "scope": "collection"
+    },
+    {
+      "_id": "__BASE_ENVIRONMENT_ID__",
+      "_type": "environment",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "Base Environment",
+      "data": {
+        "agent_url": "http://localhost:3001",
+        "business_url": "http://localhost:3000",
+        "customer_token": "REPLACE_WITH_DEMO_CUSTOMER_TOKEN",
+        "conversation_id": "",
+        "message_text": "Use find-order once for my order ord_123, then tell me its ID and status.",
+        "proposal_text": "Propose changing the delivery address of my order ord_125 to 456 Insomnia Test Street. Do not apply the change.",
+        "last_request_id": "",
+        "last_message_text": "",
+        "confirmation_id": "",
+        "approval_request_id": "",
+        "approval_confirmation_id": ""
+      },
+      "dataPropertyOrder": null,
+      "color": null,
+      "isPrivate": false
+    },
+    {
+      "_id": "__folder_1__",
+      "_type": "request_group",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "01 — Health and identity",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 0,
+      "description": ""
+    },
+    {
+      "_id": "__folder_2__",
+      "_type": "request_group",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "02 — Conversations",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 1,
+      "description": ""
+    },
+    {
+      "_id": "__folder_3__",
+      "_type": "request_group",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "03 — Chat (live model)",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 2,
+      "description": ""
+    },
+    {
+      "_id": "__folder_4__",
+      "_type": "request_group",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "04 — Address approval (changes data)",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 3,
+      "description": ""
+    },
+    {
+      "_id": "__folder_5__",
+      "_type": "request_group",
+      "parentId": "__WORKSPACE_ID__",
+      "name": "05 — Validation and rejection",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": 4,
+      "description": ""
+    },
+    {
+      "_id": "__request_1__",
+      "_type": "request",
+      "parentId": "__folder_1__",
+      "name": "Agent API health",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/health",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));",
+      "metaSortKey": 1,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_2__",
+      "_type": "request",
+      "parentId": "__folder_1__",
+      "name": "Business API health",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.business_url }}/health",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));",
+      "metaSortKey": 2,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_3__",
+      "_type": "request",
+      "parentId": "__folder_1__",
+      "name": "Authenticated customer",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.business_url }}/agent-tools/customer",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));",
+      "metaSortKey": 3,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_4__",
+      "_type": "request",
+      "parentId": "__folder_1__",
+      "name": "Read seeded order ord_123",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.business_url }}/agent-tools/orders/ord_123",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));",
+      "metaSortKey": 4,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_5__",
+      "_type": "request",
+      "parentId": "__folder_2__",
+      "name": "01 — Create conversation",
+      "description": "Saves the returned ID as conversation_id and resets retry state. Starts a new history; does not call a model.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 201', () => insomnia.expect(insomnia.response.status).to.eql(201));\nif (insomnia.response.status === 201) {\n  insomnia.environment.set('conversation_id', insomnia.response.json().id);\n  for (const key of ['last_request_id', 'last_message_text', 'confirmation_id', 'approval_request_id', 'approval_confirmation_id']) insomnia.environment.set(key, '');\n}\n",
+      "metaSortKey": 5,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_6__",
+      "_type": "request",
+      "parentId": "__folder_2__",
+      "name": "02 — List my conversations",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));",
+      "metaSortKey": 6,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_7__",
+      "_type": "request",
+      "parentId": "__folder_2__",
+      "name": "03 — Load history / recover after disconnect",
+      "description": "Returns messages, ordered turn statuses, approval states and active. Repeat until active=false after cancelling a stream. Also saves the newest unexpired pending confirmation ID.",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'tool-change-address' && p.state === 'output-available'\n    && p.output && pending.has(p.output.confirmationId) && Date.parse(p.output.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.output.confirmationId : '');\n}\n",
+      "metaSortKey": 7,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_8__",
+      "_type": "request",
+      "parentId": "__folder_3__",
+      "name": "01 — Send new message",
+      "description": "Calls the live model. Edit message_text in the environment. Every Send creates a fresh request ID; use Replay last message for a retry. The script safely JSON-encodes text, including quotes/newlines. Request timeout should be 180000 ms.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst requestId = require('uuid').v4();\nconst text = insomnia.environment.get('message_text');\nif (!text || !text.trim()) throw new Error('Set nonempty message text.');\ninsomnia.environment.set('last_request_id', requestId);\ninsomnia.environment.set('last_message_text', text);\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId, text }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const body = insomnia.response.text();\n  insomnia.test('SSE completed', () => insomnia.expect(body).to.include('data: [DONE]'));\n  insomnia.test('No generation error event', () => insomnia.expect(/\"type\"\\s*:\\s*\"error\"/.test(body)).to.eql(false));\n}\n",
+      "metaSortKey": 8,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_9__",
+      "_type": "request",
+      "parentId": "__folder_3__",
+      "name": "02 — Follow-up using stored history",
+      "description": "Calls the live model with a new request ID. No history is sent by the client. Run Send new message first.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst requestId = require('uuid').v4();\nconst text = \"Using only our earlier conversation, repeat the order ID and status you found. Do not call tools.\";\nif (!text || !text.trim()) throw new Error('Set nonempty message text.');\ninsomnia.environment.set('last_request_id', requestId);\ninsomnia.environment.set('last_message_text', text);\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId, text }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const body = insomnia.response.text();\n  insomnia.test('SSE completed', () => insomnia.expect(body).to.include('data: [DONE]'));\n  insomnia.test('No generation error event', () => insomnia.expect(/\"type\"\\s*:\\s*\"error\"/.test(body)).to.eql(false));\n}\n",
+      "metaSortKey": 9,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_10__",
+      "_type": "request",
+      "parentId": "__folder_3__",
+      "name": "03 — Replay last message (no new ID)",
+      "description": "Run after the last turn has completed. Reuses the exact request ID and text; returns saved turn status as JSON without model execution. While active, the server returns 409; load history instead.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst requestId = insomnia.environment.get('last_request_id');\nconst text = insomnia.environment.get('last_message_text');\nif (!requestId || !text) throw new Error('Send a new message first.');\n\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId, text }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) insomnia.test('Idempotent replay', () => insomnia.expect(insomnia.response.json().replayed).to.eql(true));",
+      "metaSortKey": 10,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_11__",
+      "_type": "request",
+      "parentId": "__folder_3__",
+      "name": "04 — Reject reused ID with changed text (409)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst requestId = insomnia.environment.get('last_request_id');\nconst text = insomnia.environment.get('last_message_text');\nif (!requestId || !text) throw new Error('Send a new message first.');\n\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId, text: text + ' (different input)' }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 409', () => insomnia.expect(insomnia.response.status).to.eql(409));",
+      "metaSortKey": 11,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_12__",
+      "_type": "request",
+      "parentId": "__folder_4__",
+      "name": "01 — Request address proposal (live model)",
+      "description": "Creates a proposal for seeded order ord_125. Does not apply the address change. Proposals expire after five minutes.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst requestId = require('uuid').v4();\nconst text = insomnia.environment.get('proposal_text');\nif (!text || !text.trim()) throw new Error('Set nonempty message text.');\ninsomnia.environment.set('last_request_id', requestId);\ninsomnia.environment.set('last_message_text', text);\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId, text }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const body = insomnia.response.text();\n  insomnia.test('SSE completed', () => insomnia.expect(body).to.include('data: [DONE]'));\n  insomnia.test('No generation error event', () => insomnia.expect(/\"type\"\\s*:\\s*\"error\"/.test(body)).to.eql(false));\n}\n",
+      "metaSortKey": 12,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_13__",
+      "_type": "request",
+      "parentId": "__folder_4__",
+      "name": "02 — Load history and capture pending proposal",
+      "description": "Sets confirmation_id from a server-stored pending, unexpired proposal. Run after requesting the proposal.",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');",
+      "afterResponseScript": "insomnia.test('Expected HTTP 200', () => insomnia.expect(insomnia.response.status).to.eql(200));\nif (insomnia.response.status === 200) {\n  const history = insomnia.response.json();\n  const pending = new Set(history.approvals.filter(a => a.status === 'pending').map(a => a.confirmationId));\n  const parts = [...history.messages].reverse().flatMap(message => message.parts);\n  const part = parts.find(p => p.type === 'tool-change-address' && p.state === 'output-available'\n    && p.output && pending.has(p.output.confirmationId) && Date.parse(p.output.expiresAt) > Date.now());\n  insomnia.environment.set('confirmation_id', part ? part.output.confirmationId : '');\n}\n",
+      "metaSortKey": 13,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_14__",
+      "_type": "request",
+      "parentId": "__folder_4__",
+      "name": "03 — APPROVE AND APPLY stored address change",
+      "description": "MUTATION: approves and immediately applies the exact server-stored proposal. This changes the order delivery address. Send deliberately; do not run the whole collection blindly. Repeated sends reuse the approval request ID to avoid duplicate execution. Refresh history afterwards.",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/approvals/{{ _.confirmation_id }}",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated once per confirmation>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\nconst confirmationId = insomnia.environment.get('confirmation_id');\nif (!confirmationId) throw new Error('Request a proposal, then load history to capture its pending confirmation.');\nif (insomnia.environment.get('approval_confirmation_id') !== confirmationId || !insomnia.environment.get('approval_request_id')) {\n  insomnia.environment.set('approval_confirmation_id', confirmationId);\n  insomnia.environment.set('approval_request_id', require('uuid').v4());\n}\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: insomnia.environment.get('approval_request_id') }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 201', () => insomnia.expect(insomnia.response.status).to.eql(201));",
+      "metaSortKey": 14,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_15__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject client-managed history (400)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: require('uuid').v4(), text: 'Hello', messages: [{ role: 'assistant', parts: [] }] }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 400', () => insomnia.expect(insomnia.response.status).to.eql(400));",
+      "metaSortKey": 15,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_16__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject client tool results (400)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: require('uuid').v4(), text: 'Hello', toolCalls: [{ name: 'change-address', output: { approved: true } }] }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 400', () => insomnia.expect(insomnia.response.status).to.eql(400));",
+      "metaSortKey": 16,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_17__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject malformed request ID (400)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: require('uuid').v4(), text: 'Hello', requestId: 'invalid' }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 400', () => insomnia.expect(insomnia.response.status).to.eql(400));",
+      "metaSortKey": 17,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_18__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject text over 4000 characters (400)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: require('uuid').v4(), text: 'x'.repeat(4001) }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 400', () => insomnia.expect(insomnia.response.status).to.eql(400));",
+      "metaSortKey": 18,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_19__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject body over 100 KiB (413)",
+      "description": "",
+      "method": "POST",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}/messages",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"requestId\": \"<generated by pre-request script>\",\n  \"text\": \"<provided by pre-request script>\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');\ninsomnia.request.body.update({ mode: 'raw', raw: JSON.stringify({ requestId: require('uuid').v4(), text: 'Hello', ignored: 'x'.repeat(102400) }) });",
+      "afterResponseScript": "insomnia.test('Expected HTTP 413', () => insomnia.expect(insomnia.response.status).to.eql(413));",
+      "metaSortKey": 19,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_20__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject invalid customer token (401)",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations/{{ _.conversation_id }}",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "intentionally-invalid-token",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "if (!insomnia.environment.get('conversation_id')) throw new Error('Run Create conversation first.');",
+      "afterResponseScript": "insomnia.test('Expected HTTP 401', () => insomnia.expect(insomnia.response.status).to.eql(401));",
+      "metaSortKey": 20,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_21__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject unknown conversation (404)",
+      "description": "Valid UUID with no matching owned conversation. This is not a second-customer authorization test: demo authentication exposes only one customer token.",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations/00000000-0000-4000-8000-000000000000",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 404', () => insomnia.expect(insomnia.response.status).to.eql(404));",
+      "metaSortKey": 21,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "__request_22__",
+      "_type": "request",
+      "parentId": "__folder_5__",
+      "name": "Reject malformed conversation ID (400)",
+      "description": "",
+      "method": "GET",
+      "url": "{{ _.agent_url }}/assistant/conversations/not-a-uuid",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.customer_token }}",
+        "prefix": "Bearer",
+        "disabled": false
+      },
+      "preRequestScript": "",
+      "afterResponseScript": "insomnia.test('Expected HTTP 400', () => insomnia.expect(insomnia.response.status).to.eql(400));",
+      "metaSortKey": 22,
+      "isPrivate": false,
+      "settingStoreCookies": false,
+      "settingSendCookies": false,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global"
+    }
+  ]
+}
