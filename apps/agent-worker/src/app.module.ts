@@ -21,7 +21,7 @@ import { EmailModule } from './apps/email/email.module';
 
 import {
   appConfigOptions,
-  bedrockConfig,
+  aiConfig,
   workerConfig,
   workflowsConfig,
 } from './app.config';
@@ -31,7 +31,7 @@ import {
     ConfigModule.forRoot(appConfigOptions),
     AiModule.forRootAsync({
       isGlobal: true,
-      inject: [bedrockConfig.KEY],
+      inject: [aiConfig.KEY],
       useFactory: buildAiOptions,
     }),
     TypeOrmModule.forRootAsync({

@@ -92,7 +92,7 @@ export default function App() {
             <h1>Assistant</h1>
           </div>
           <div className="header-actions">
-            <span className="model-label">Amazon Bedrock</span>
+            <span className="model-label">AI Assistant</span>
             <button
               className="clear-button"
               type="button"

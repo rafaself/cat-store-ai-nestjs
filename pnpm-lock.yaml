@@ -509,6 +509,12 @@ importers:
       '@ai-sdk/amazon-bedrock':
         specifier: ^5.0.135
         version: 5.0.135(zod@4.6.7)
+      '@ai-sdk/anthropic':
+        specifier: ^4.0.99
+        version: 4.0.99(zod@4.6.7)
+      '@ai-sdk/openai':
+        specifier: ^4.0.111
+        version: 4.0.111(zod@4.6.7)
       '@cat-supplies-store/config':
         specifier: workspace:*
         version: link:../config
@@ -518,6 +524,9 @@ importers:
       '@nestjs/config':
         specifier: ^12.1.1
         version: 12.1.1(@nestjs/common@12.4.0(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(rxjs@7.8.2)
+      ai:
+        specifier: ^7.0.165
+        version: 7.0.165(zod@4.6.7)
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

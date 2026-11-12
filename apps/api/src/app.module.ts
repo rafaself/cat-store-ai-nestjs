@@ -20,7 +20,7 @@ import { HealthController } from './health.controller';
 import {
   appConfigOptions,
   databaseConfig,
-  bedrockConfig,
+  aiConfig,
   workflowsConfig,
   queueConfig,
 } from './app.config';
@@ -31,7 +31,7 @@ import {
     DatabaseModule,
     AiModule.forRootAsync({
       isGlobal: true,
-      inject: [bedrockConfig.KEY],
+      inject: [aiConfig.KEY],
       useFactory: buildEmbeddingOptions,
     }),
     WorkflowsModule.forRootAsync({

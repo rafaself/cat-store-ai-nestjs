@@ -1,138 +1,238 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadBedrockConfig } from '@cat-supplies-store/config';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
 
-const mocks = vi.hoisted(() => {
-  const textModel = { kind: 'text-model', modelId: 'test-model' };
-  const embeddingModel = { kind: 'embedding-model', modelId: 'test-embedding' };
-  const embedding = vi.fn((modelId: string) => ({
-    ...embeddingModel,
-    modelId,
-  }));
-  const provider = Object.assign(
-    vi.fn((modelId: string) => ({ ...textModel, modelId })),
-    { embedding },
-  );
-  return {
-    textModel,
-    embeddingModel,
-    embedding,
-    provider,
-    create: vi.fn(() => provider),
-  };
+vi.mock('@ai-sdk/amazon-bedrock', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@ai-sdk/amazon-bedrock')>();
+  return { ...actual, createAmazonBedrock: vi.fn(actual.createAmazonBedrock) };
+});
+vi.mock('@ai-sdk/anthropic', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ai-sdk/anthropic')>();
+  return { ...actual, createAnthropic: vi.fn(actual.createAnthropic) };
+});
+vi.mock('@ai-sdk/openai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ai-sdk/openai')>();
+  return { ...actual, createOpenAI: vi.fn(actual.createOpenAI) };
 });
 
-vi.mock('@ai-sdk/amazon-bedrock', () => ({
-  createAmazonBedrock: mocks.create,
-}));
+import {
+  loadAiConfig,
+  buildAiOptions,
+  buildEmbeddingOptions,
+} from './index.js';
 
-import { buildAiOptions, buildEmbeddingOptions } from './index.js';
+const environment = {
+  AWS_BEARER_TOKEN_BEDROCK: 'test-token',
+};
 
-describe('buildAiOptions', () => {
-  beforeEach(() => vi.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
+
+describe('explicit AI model configuration', () => {
+  it('uses versioned models and defaults regardless of model environment variables', () => {
+    const config = loadAiConfig(
+      Object.freeze({
+        ...environment,
+        AI_MODEL_DEFAULT: 'openai:unexpected',
+        AI_EMBEDDING_MODEL_DEFAULT: 'openai:unexpected-embedding',
+        AI_MODEL_EXTRA: 'anthropic:unexpected',
+      }),
+    );
+    expect(config.models).toEqual({
+      default: { provider: 'bedrock', modelId: 'us.openai.gpt-6-luna' },
+    });
+    expect(config.embeddingModels).toEqual({
+      default: { provider: 'bedrock', modelId: 'amazon.titan-embed-text-v2:0' },
+    });
+    expect(config.defaults).toEqual({
+      timeout: '60s',
+      retry: { attempts: 2 },
+      maxOutputTokens: 800,
+    });
+    expect(config.embeddingDefaults).toEqual({
+      timeout: '30s',
+      retry: { attempts: 3 },
+    });
+    expect(config.providers.openai).toBeUndefined();
+    expect(config.providers.anthropic).toBeUndefined();
+  });
+
+  it('registers named models across providers without changing process.env', () => {
+    const before = { ...process.env };
+    const config = loadAiConfig(
+      {
+        ...environment,
+        ANTHROPIC_API_KEY: 'anthropic-key',
+        OPENAI_API_KEY: 'openai-key',
+      },
+      {
+        models: {
+          default: { provider: 'bedrock', modelId: 'us.openai.gpt-6-luna' },
+          fast: { provider: 'anthropic', modelId: 'fast-model' },
+          reasoning: { provider: 'openai', modelId: 'reasoning-model' },
+        },
+        embeddingModels: {
+          default: {
+            provider: 'bedrock',
+            modelId: 'amazon.titan-embed-text-v2:0',
+          },
+          search_v2: { provider: 'openai', modelId: 'search-embedding' },
+        },
+      },
+    );
+    const options = buildAiOptions(config);
+    expect(options.models).toMatchObject({
+      default: {
+        modelId: 'us.openai.gpt-6-luna',
+        provider: expect.stringContaining('bedrock'),
+      },
+      fast: {
+        modelId: 'fast-model',
+        provider: expect.stringContaining('anthropic'),
+      },
+      reasoning: {
+        modelId: 'reasoning-model',
+        provider: expect.stringContaining('openai'),
+      },
+    });
+    expect(options.embeddingModels).toMatchObject({
+      default: { modelId: 'amazon.titan-embed-text-v2:0' },
+      search_v2: { modelId: 'search-embedding' },
+    });
+    expect(Object.keys(options.models!)).toEqual([
+      'default',
+      'fast',
+      'reasoning',
+    ]);
+    expect(Object.keys(options.embeddingModels!)).toEqual([
+      'default',
+      'search_v2',
+    ]);
+    expect(createAmazonBedrock).toHaveBeenCalledExactlyOnceWith(
+      config.providers.bedrock,
+    );
+    expect(createAnthropic).toHaveBeenCalledExactlyOnceWith({
+      apiKey: 'anthropic-key',
+    });
+    expect(createOpenAI).toHaveBeenCalledExactlyOnceWith({
+      apiKey: 'openai-key',
+      baseURL: 'https://api.openai.com/v1',
+    });
+    expect(options.defaults).toEqual(config.defaults);
+    expect(options.embeddingDefaults).toEqual(config.embeddingDefaults);
+    expect(process.env).toEqual(before);
+  });
+
+  it('switches the default provider through code configuration and ignores unused provider settings', () => {
+    const options = buildAiOptions(
+      loadAiConfig(
+        {
+          OPENAI_API_KEY: 'key',
+          OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+          AWS_REGION: '',
+        },
+        {
+          models: { default: { provider: 'openai', modelId: 'text-model' } },
+          embeddingModels: {
+            default: { provider: 'openai', modelId: 'embedding-model' },
+          },
+        },
+      ),
+    );
+    expect(options.models?.default).toMatchObject({
+      modelId: 'text-model',
+      provider: expect.stringContaining('openai'),
+    });
+    expect(options.embeddingModels?.default).toMatchObject({
+      modelId: 'embedding-model',
+    });
+    expect(createOpenAI).toHaveBeenCalledExactlyOnceWith({
+      apiKey: 'key',
+      baseURL: 'https://proxy.example.com/v1',
+    });
+    expect(createAmazonBedrock).not.toHaveBeenCalled();
+    expect(createAnthropic).not.toHaveBeenCalled();
+  });
 
   it.each([buildAiOptions, buildEmbeddingOptions])(
-    'registers every embedding alias independently of language models (%#)',
+    'keeps matching aliases independent across model registries (%#)',
     (buildOptions) => {
       const options = buildOptions(
-        loadBedrockConfig({
-          BEDROCK_MODEL_DEFAULT: 'text-default',
-          BEDROCK_MODEL_FAST: 'text-fast',
-          BEDROCK_EMBEDDING_MODEL_DEFAULT: 'embedding-default',
-          BEDROCK_EMBEDDING_MODEL_FAST: 'embedding-fast',
-          BEDROCK_EMBEDDING_MODEL_SEARCH_V2: 'embedding-search',
-        }),
+        loadAiConfig(
+          {
+            ...environment,
+            OPENAI_API_KEY: 'key',
+          },
+          {
+            models: {
+              default: { provider: 'bedrock', modelId: 'us.openai.gpt-6-luna' },
+              fast: { provider: 'bedrock', modelId: 'fast-text' },
+            },
+            embeddingModels: {
+              default: {
+                provider: 'bedrock',
+                modelId: 'amazon.titan-embed-text-v2:0',
+              },
+              fast: { provider: 'openai', modelId: 'fast-embedding' },
+            },
+          },
+        ),
       );
-      expect(mocks.create).toHaveBeenCalledTimes(1);
-      expect(mocks.embedding).toHaveBeenCalledTimes(3);
-      expect(options.embeddingModels).toEqual({
-        default: { kind: 'embedding-model', modelId: 'embedding-default' },
-        fast: { kind: 'embedding-model', modelId: 'embedding-fast' },
-        search_v2: { kind: 'embedding-model', modelId: 'embedding-search' },
+      expect(options.embeddingModels?.fast).toMatchObject({
+        modelId: 'fast-embedding',
       });
-      if (buildOptions === buildEmbeddingOptions) {
-        expect(mocks.provider).not.toHaveBeenCalled();
-        expect(options.models).toBeUndefined();
+      if (buildOptions === buildAiOptions) {
+        expect(options.models?.fast).toMatchObject({ modelId: 'fast-text' });
       } else {
-        expect(options.models).toEqual({
-          default: { kind: 'text-model', modelId: 'text-default' },
-          fast: { kind: 'text-model', modelId: 'text-fast' },
-        });
+        expect(options.models).toBeUndefined();
       }
     },
   );
 
-  it('registers each configured alias with its own Bedrock model ID using one provider', () => {
-    const options = buildAiOptions(
-      loadBedrockConfig({
-        BEDROCK_MODEL_DEFAULT: 'default-model',
-        BEDROCK_EMBEDDING_MODEL_DEFAULT: 'test-embedding',
-        BEDROCK_MODEL_FAST: 'fast-model',
-        BEDROCK_MODEL_FAST_REASONING: 'reasoning-model',
+  it('constructs only embedding providers in the Business API', () => {
+    const options = buildEmbeddingOptions(
+      loadAiConfig(
+        {
+          ANTHROPIC_API_KEY: 'anthropic-key',
+          OPENAI_API_KEY: 'openai-key',
+        },
+        {
+          models: { default: { provider: 'anthropic', modelId: 'text-model' } },
+          embeddingModels: {
+            default: { provider: 'openai', modelId: 'embedding-model' },
+          },
+        },
+      ),
+    );
+    expect(options.models).toBeUndefined();
+    expect(options.embeddingModels?.default).toMatchObject({
+      modelId: 'embedding-model',
+    });
+    expect(createOpenAI).toHaveBeenCalledTimes(1);
+    expect(createAnthropic).not.toHaveBeenCalled();
+    expect(createAmazonBedrock).not.toHaveBeenCalled();
+  });
+
+  it('forwards normalized Bedrock credentials and region explicitly', () => {
+    const before = { ...process.env };
+    buildAiOptions(
+      loadAiConfig({
+        ...environment,
+        AWS_REGION: 'us-west-2',
+        AWS_BEARER_TOKEN_BEDROCK: ' bearer ',
+        AWS_ACCESS_KEY_ID: ' access ',
+        AWS_SECRET_ACCESS_KEY: ' secret ',
+        AWS_SESSION_TOKEN: ' session ',
       }),
     );
-    expect(mocks.create).toHaveBeenCalledTimes(1);
-    expect(mocks.provider).toHaveBeenCalledTimes(3);
-    expect(options.models).toEqual({
-      default: { kind: 'text-model', modelId: 'default-model' },
-      fast: { kind: 'text-model', modelId: 'fast-model' },
-      fast_reasoning: { kind: 'text-model', modelId: 'reasoning-model' },
-    });
-    expect(options.embeddingModels).toEqual({ default: mocks.embeddingModel });
-  });
-
-  it('configures bearer and AWS credentials without changing the environment', () => {
-    const environment = { ...process.env };
-    const config = loadBedrockConfig({
-      BEDROCK_EMBEDDING_MODEL_DEFAULT: 'test-embedding',
-      BEDROCK_MODEL_DEFAULT: 'test-model',
-      AWS_REGION: 'us-west-2',
-      AWS_BEARER_TOKEN_BEDROCK: 'bearer-example',
-      AWS_ACCESS_KEY_ID: 'access-example',
-      AWS_SECRET_ACCESS_KEY: 'secret-example',
-      AWS_SESSION_TOKEN: 'session-example',
-    });
-    const options = buildAiOptions(config);
-    expect(mocks.create).toHaveBeenCalledWith({
+    expect(createAmazonBedrock).toHaveBeenCalledExactlyOnceWith({
       region: 'us-west-2',
-      apiKey: 'bearer-example',
-      accessKeyId: 'access-example',
-      secretAccessKey: 'secret-example',
-      sessionToken: 'session-example',
+      apiKey: 'bearer',
+      accessKeyId: 'access',
+      secretAccessKey: 'secret',
+      sessionToken: 'session',
     });
-    expect(mocks.provider).toHaveBeenCalledWith(config.models.default);
-    expect(mocks.embedding).toHaveBeenCalledWith(
-      config.embeddingModels.default,
-    );
-    expect(options.models).toEqual({ default: mocks.textModel });
-    expect(options.embeddingModels).toEqual({ default: mocks.embeddingModel });
-    expect(process.env).toEqual(environment);
-  });
-
-  it('registers only embeddings in the business API', () => {
-    const config = loadBedrockConfig({
-      BEDROCK_EMBEDDING_MODEL_DEFAULT: 'test-embedding',
-      BEDROCK_MODEL_DEFAULT: 'test-model',
-    });
-    const options = buildEmbeddingOptions(config);
-    expect(options.models).toBeUndefined();
-    expect(options.embeddingModels).toEqual({ default: mocks.embeddingModel });
-    expect(mocks.provider).not.toHaveBeenCalled();
-  });
-
-  it('passes absent credentials through without creating environment values', () => {
-    const environment = { ...process.env };
-    const config = loadBedrockConfig({
-      BEDROCK_EMBEDDING_MODEL_DEFAULT: 'test-embedding',
-      BEDROCK_MODEL_DEFAULT: 'test-model',
-    });
-    buildAiOptions(config);
-    expect(mocks.create).toHaveBeenCalledWith({
-      region: 'us-east-1',
-      apiKey: undefined,
-      accessKeyId: undefined,
-      secretAccessKey: undefined,
-      sessionToken: undefined,
-    });
-    expect(process.env).toEqual(environment);
+    expect(process.env).toEqual(before);
   });
 });

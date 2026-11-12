@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { createBedrockConfig } from '@cat-supplies-store/ai';
+import { createAiConfig, loadAiConfig } from '@cat-supplies-store/ai';
 import {
   readEnvironment,
   validateEnvironment,
@@ -25,11 +25,9 @@ describe('configuration without environment mutations', () => {
         [
           'DATABASE_URL=postgresql://test:test@file-host:5432/file-db',
           'AWS_REGION=us-west-2',
-          'BEDROCK_MODEL_DEFAULT=file-default-model',
-          'BEDROCK_MODEL_FAST=file-fast-model',
-          'BEDROCK_EMBEDDING_MODEL_DEFAULT=file-embedding-model',
-          'BEDROCK_EMBEDDING_MODEL_SEARCH_V2=file-search-model',
           'AWS_BEARER_TOKEN_BEDROCK=file-token',
+          'ANTHROPIC_API_KEY=file-anthropic-key',
+          'OPENAI_API_KEY=file-openai-key',
           'REDIS_PORT=17379',
           'NODE_ENV=production',
           'LOG_LEVEL=error',
@@ -38,12 +36,10 @@ describe('configuration without environment mutations', () => {
       );
       const environment = readEnvironment(envFile, {
         AWS_REGION: 'eu-west-1',
-        BEDROCK_MODEL_DEFAULT: 'ambient-default-model',
-        BEDROCK_EMBEDDING_MODEL_DEFAULT: 'ambient-embedding-model',
       });
       const config = validateEnvironment(environment);
       const database = createDatabaseConfig(config.database);
-      const bedrock = createBedrockConfig(config.bedrock);
+      const ai = createAiConfig(loadAiConfig(environment));
       const queue = createQueueConfig(loadQueueConfig(environment));
       const workflows = createWorkflowsConfig(config.workflows);
       const module = await Test.createTestingModule({
@@ -52,7 +48,7 @@ describe('configuration without environment mutations', () => {
             isGlobal: true,
             ignoreEnvFile: true,
             validate: () => config,
-            load: [database, bedrock, queue, workflows],
+            load: [database, ai, queue, workflows],
           }),
         ],
       }).compile();
@@ -60,13 +56,20 @@ describe('configuration without environment mutations', () => {
         expect(module.get(database.KEY)).toMatchObject({
           connectionString: 'postgresql://test:test@file-host:5432/file-db',
         });
-        expect(module.get(bedrock.KEY)).toMatchObject({
-          region: 'eu-west-1',
-          bearerToken: 'file-token',
-          models: { default: 'ambient-default-model', fast: 'file-fast-model' },
+        expect(module.get(ai.KEY)).toMatchObject({
+          providers: {
+            bedrock: { region: 'eu-west-1', apiKey: 'file-token' },
+            anthropic: undefined,
+            openai: undefined,
+          },
+          models: {
+            default: { provider: 'bedrock', modelId: 'us.openai.gpt-6-luna' },
+          },
           embeddingModels: {
-            default: 'ambient-embedding-model',
-            search_v2: 'file-search-model',
+            default: {
+              provider: 'bedrock',
+              modelId: 'amazon.titan-embed-text-v2:0',
+            },
           },
         });
         expect(module.get(queue.KEY)).toMatchObject({ port: 17379 });

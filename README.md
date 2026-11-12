@@ -3,16 +3,15 @@
 A cat-store support example with a React frontend, separate NestJS business/agent APIs, and Turborepo
 workspace. It demonstrates support email triage and drafting, invoice extraction,
 customer-scoped order tools, durable refund approvals, and product semantic
-search. Text generation uses configurable models through Amazon Bedrock; product vectors
-use a configurable embedding model (Amazon Titan Text Embeddings v2 in the example).
+search. Language and embedding models are declared in `packages/ai/src/config.ts`;
+the example uses Amazon Bedrock with Titan Text Embeddings v2 for product vectors.
 
 ## Prerequisites
 
 - Node.js 24 LTS (24.15.0 or newer in the 24.x line)
 - pnpm 12.6.0
 - Docker Compose with the Docker Compose plugin
-- Bedrock access to the configured language and embedding models in the
-  configured AWS region for live AI requests
+- Access and credentials for the configured language and embedding models
 
 The repository pins pnpm through `packageManager` and declares its supported
 Node.js range in `package.json`.
@@ -27,28 +26,36 @@ cp .env.example .env
 The APIs and Agent Worker read `.env` into their configuration without changing
 `process.env`. Values already present in the process environment take precedence.
 
-The Agent API and Agent Worker register every `BEDROCK_MODEL_*` environment
-variable as a named Nest AI language model. `BEDROCK_MODEL_DEFAULT` is required
-and has no fallback; `.env.example` supplies an example model ID. Add entries
-such as `BEDROCK_MODEL_FAST` or `BEDROCK_MODEL_FAST_REASONING` to register `fast`
-or `fast_reasoning`. Suffixes must match `[A-Z][A-Z0-9_]*`; model IDs must be
-nonblank. Existing services select `default`; additional models can be selected
-by alias in backend calls. Changes take effect after a restart. All models share
-the AWS credentials and `AWS_REGION`, which defaults to `us-east-1`.
-Embedding models are independently registered through
-`BEDROCK_EMBEDDING_MODEL_*` with the same suffix validation and lowercase alias
-rules. `BEDROCK_EMBEDDING_MODEL_DEFAULT` is required with no fallback;
-`.env.example` selects Amazon Titan Text Embeddings v2. For example,
-`BEDROCK_EMBEDDING_MODEL_SEARCH_V2` registers the embedding alias `search_v2`.
-Both default variables are required in all Nest applications. Catalog indexing
-and search use the embedding alias `default`, which must produce 1024-dimensional
-vectors. Changing that model requires rebuilding all stored product embeddings
-before searching with the new model, even if vector dimensions match.
-Set `AWS_BEARER_TOKEN_BEDROCK` in
-`.env`, or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for SigV4
-authentication (also set `AWS_SESSION_TOKEN` when using temporary credentials).
-Chat, email AI services, product indexing, and product search need Bedrock
-credentials.
+The Nest applications share explicit, typed model selections in
+`packages/ai/src/config.ts`. The default language model remains
+`us.openai.gpt-6-luna` on Bedrock, and the default embedding model remains
+`amazon.titan-embed-text-v2:0` on Bedrock. Edit these selections in code when
+changing models; model registrations are reviewed and deployed with the application.
+Environment variables do not select models or create aliases.
+
+Supported adapters are Bedrock, Anthropic, and OpenAI. Embeddings support
+Bedrock and OpenAI. Services select `default`; add named models in the code
+configuration when a task needs one. Shared timeout, retry, and output-limit
+defaults also live in `packages/ai/src/config.ts`. Task-specific generation
+settings belong beside the service that owns the task.
+
+Only selected providers have their settings validated. Bedrock requires
+`AWS_BEARER_TOKEN_BEDROCK` or both `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`; temporary credentials also use `AWS_SESSION_TOKEN`.
+`AWS_REGION` defaults to `us-east-1`. Direct Anthropic calls require
+`ANTHROPIC_API_KEY`; direct OpenAI calls require `OPENAI_API_KEY` and optionally
+accept `OPENAI_BASE_URL` (default `https://api.openai.com/v1`). The OpenAI language
+adapter uses Responses, so a custom endpoint must support that API.
+Credentials and deployment connection settings stay in the environment and are
+passed explicitly to SDK factories without modifying `process.env`. Missing or
+invalid selected-provider settings fail startup. The Business API constructs
+only embedding providers; the Agent API and Worker construct providers used by
+both model selections.
+
+Catalog indexing and search use the embedding alias `default`, which must
+produce 1024-dimensional vectors. Changing that model requires rebuilding all
+stored product embeddings before searching, even if vector dimensions match.
+The example selects Amazon Titan Text Embeddings v2.
 
 The sample uses PostgreSQL with pgvector, Redis, and Mailpit. Start them first:
 
@@ -222,10 +229,10 @@ settings. For services hosted elsewhere, set `DATABASE_URL`,
   refund execution. Renaming the app does not change queue/job names, workflow
   names/versions, migration tables, encryption key IDs, or persisted state.
 - `apps/web` contains the React chat interface, built and served with Vite.
-- `packages/ai` provides reusable Bedrock setup. The Business API registers only
+- `packages/ai` owns model selections, shared AI defaults, and provider setup. The Business API registers only
   the embedding model for catalog search/indexing; Agent API and Agent Worker
   register the existing AI configuration.
-- `packages/config` provides typed API, database, Bedrock, auth, and workflow
+- `packages/config` provides typed API, database, AI provider, auth, and workflow
   settings. `packages/contracts` owns request and response schemas at the HTTP
   boundary. Its Node-only `@cat-supplies-store/contracts/email-job-id` entry
   point defines the stable persisted email job identity used by both producer

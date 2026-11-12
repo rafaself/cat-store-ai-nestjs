@@ -14,9 +14,12 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^5.0.135",
+    "@ai-sdk/anthropic": "^4.0.99",
+    "@ai-sdk/openai": "^4.0.111",
     "@cat-supplies-store/config": "workspace:*",
     "@nestjs/ai": "^0.0.2",
-    "@nestjs/config": "^12.1.1"
+    "@nestjs/config": "^12.1.1",
+    "ai": "^7.0.165"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
