@@ -19,10 +19,7 @@ import { DataSource } from 'typeorm';
 import { PaymentsService } from '@cat-supplies-store/refunds';
 import { randomUUID } from 'node:crypto';
 import { readUIMessageStream, type UIMessage, type UIMessageChunk } from 'ai';
-import {
-  addressChangeProposalSchema,
-  chatRequestSchema,
-} from '@cat-supplies-store/contracts';
+import { addressChangeProposalSchema } from '@cat-supplies-store/contracts';
 
 function fakeEmbedding(text: string): number[] {
   const vector = Array.from({ length: 1024 }, () => 0);
@@ -44,6 +41,7 @@ describe('Cat store API (e2e)', () => {
   let fakeModel: FakeModel;
   let agent: INestApplication<App>;
   let worker: TestingModule | undefined;
+  let conversationId: string;
 
   beforeAll(async () => {
     fakeModel = new FakeModel(['Hello from the offline fake model.']);
@@ -56,6 +54,12 @@ describe('Cat store API (e2e)', () => {
     fixture.get(ConfigService).set('businessApi.url', await app.getUrl());
     agent = fixture.createNestApplication();
     await agent.init();
+    const conversation = await request(agent.getHttpServer())
+      .post('/assistant/conversations')
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({})
+      .expect(201);
+    conversationId = conversation.body.id;
 
     const database = app.get(DataSource);
     await database.query('DELETE FROM payment_refunds');
@@ -80,7 +84,7 @@ describe('Cat store API (e2e)', () => {
       .get('/health')
       .expect(200, { status: 'ok' });
     await request(app.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .send({ messages: [] })
       .expect(404);
     await request(app.getHttpServer())
@@ -95,7 +99,7 @@ describe('Cat store API (e2e)', () => {
       .expect(401);
 
     await request(agent.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .send({ messages: [] })
       .expect(401);
     await request(app.getHttpServer())
@@ -110,7 +114,7 @@ describe('Cat store API (e2e)', () => {
 
   it('rejects invalid bodies and query parameters before handling requests', async () => {
     await request(agent.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .set('Authorization', 'Bearer test-customer-token')
       .send({ messages: [] })
       .expect(400);
@@ -136,16 +140,11 @@ describe('Cat store API (e2e)', () => {
 
   it('streams a chat reply through the fake language model', async () => {
     const response = await request(agent.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .set('Authorization', 'Bearer test-customer-token')
       .send({
-        messages: [
-          {
-            id: 'message-1',
-            role: 'user',
-            parts: [{ type: 'text', text: 'Hi there' }],
-          },
-        ],
+        requestId: randomUUID(),
+        text: 'Hi there',
       })
       .expect(200);
     expect(response.text).toContain('"delta":"Hello "');
@@ -164,16 +163,11 @@ describe('Cat store API (e2e)', () => {
       'Your order has been delivered.',
     );
     const response = await request(agent.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .set('Authorization', 'Bearer test-customer-token')
       .send({
-        messages: [
-          {
-            id: 'tool-message',
-            role: 'user',
-            parts: [{ type: 'text', text: 'Find my order ord_123' }],
-          },
-        ],
+        requestId: randomUUID(),
+        text: 'Find my order ord_123',
       })
       .expect(200);
     expect(response.text).toContain('tool-output-available');
@@ -211,22 +205,11 @@ describe('Cat store API (e2e)', () => {
     );
     fakeModel.reply('It was delivered to your demo address.');
     const followUp = await request(agent.getHttpServer())
-      .post('/assistant/chat')
+      .post(`/assistant/conversations/${conversationId}/messages`)
       .set('Authorization', 'Bearer test-customer-token')
       .send({
-        messages: [
-          {
-            id: 'tool-message',
-            role: 'user',
-            parts: [{ type: 'text', text: 'Find my order ord_123' }],
-          },
-          assistantMessage,
-          {
-            id: 'follow-up',
-            role: 'user',
-            parts: [{ type: 'text', text: 'Where was it delivered?' }],
-          },
-        ],
+        requestId: randomUUID(),
+        text: 'Where was it delivered?',
       })
       .expect(200);
     expect(followUp.text).toContain('"delta":"address."');
@@ -249,113 +232,65 @@ describe('Cat store API (e2e)', () => {
     );
   });
 
-  it('scopes order tools to the authenticated customer and allows eligible address changes', async () => {
-    await expect(
-      callTool(
-        agent,
-        'find-order',
-        { orderId: 'ord_456' },
-        {
-          caller: {
-            request: {
-              headers: { authorization: 'Bearer test-customer-token' },
-            },
-          },
-        },
-      ),
-    ).rejects.toThrow();
-
-    const proposal = addressChangeProposalSchema.parse(
-      await callTool(
-        agent,
-        'change-address',
-        {
-          orderId: 'ord_125',
-          address: '99 New Address, São Paulo',
-        },
-        {
-          caller: {
-            request: {
-              headers: { authorization: 'Bearer test-customer-token' },
-            },
-          },
-        },
-      ),
-    );
-    const caller = {
-      request: { headers: { authorization: 'Bearer test-customer-token' } },
-    };
-    expect(
-      await callTool(agent, 'find-order', { orderId: 'ord_125' }, { caller }),
-    ).toMatchObject({ deliveryAddress: '123 Demo Street, São Paulo' });
-    const confirmedInput = {
-      orderId: proposal.orderId,
-      address: proposal.address,
-      confirmationId: proposal.confirmationId,
-    };
-    await expect(
-      callTool(agent, 'change-address', confirmedInput, { caller }),
-    ).rejects.toThrow();
-    await request(app.getHttpServer())
-      .post(
-        `/agent-tools/address-confirmations/${proposal.confirmationId}/approve`,
-      )
-      .set('Authorization', 'Bearer test-customer-token')
-      .send({
-        approved: true,
-        orderId: proposal.orderId,
-        address: proposal.address,
-      })
-      .expect(201);
-    await expect(
-      callTool(agent, 'change-address', confirmedInput, { caller }),
-    ).resolves.toMatchObject({ deliveryAddress: proposal.address });
-    await expect(
-      callTool(agent, 'change-address', confirmedInput, { caller }),
-    ).rejects.toThrow();
-    // Proposal and execution parts must remain valid on subsequent chat turns.
-    expect(
-      chatRequestSchema.safeParse({
-        messages: [
+  it('proposes through the model and applies address changes through the dedicated endpoint', async () => {
+    fakeModel.reply(
+      {
+        toolCalls: [
           {
-            id: 'proposal',
-            role: 'assistant',
-            parts: [
-              {
-                type: 'tool-change-address',
-                toolCallId: 'proposal',
-                state: 'output-available',
-                input: { orderId: proposal.orderId, address: proposal.address },
-                output: proposal,
-              },
-            ],
-          },
-          {
-            id: 'user',
-            role: 'user',
-            parts: [{ type: 'text', text: 'Confirmed with the button' }],
+            name: 'change-address',
+            input: { orderId: 'ord_125', address: '99 New Address, São Paulo' },
           },
         ],
-      }).success,
-    ).toBe(true);
-
-    await expect(
-      callTool(
-        agent,
-        'change-address',
-        {
-          orderId: 'ord_456',
-          address: '1 Unauthorized Address, São Paulo',
-        },
-        {
-          caller: {
-            request: {
-              headers: { authorization: 'Bearer test-customer-token' },
-            },
-          },
-        },
-      ),
-    ).rejects.toThrow();
+      },
+      'Please confirm.',
+    );
+    await request(agent.getHttpServer())
+      .post(`/assistant/conversations/${conversationId}/messages`)
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({ requestId: randomUUID(), text: 'Change my address' })
+      .expect(200);
+    const history = await request(agent.getHttpServer())
+      .get(`/assistant/conversations/${conversationId}`)
+      .set('Authorization', 'Bearer test-customer-token')
+      .expect(200);
+    const part = history.body.messages
+      .flatMap((message: UIMessage) => message.parts)
+      .find((part: { type: string }) => part.type === 'tool-change-address');
+    const proposal = addressChangeProposalSchema.parse(part.output);
+    const token = 'Bearer test-customer-token';
+    await request(app.getHttpServer())
+      .get('/agent-tools/orders/ord_125')
+      .set('Authorization', token)
+      .expect(200)
+      .expect((response) =>
+        expect(response.body.deliveryAddress).toBe(
+          '123 Demo Street, São Paulo',
+        ),
+      );
+    const path = `/assistant/conversations/${conversationId}/approvals/${proposal.confirmationId}`;
+    const requestId = randomUUID();
+    await request(agent.getHttpServer())
+      .post(path)
+      .set('Authorization', token)
+      .send({ requestId })
+      .expect(201);
+    await request(agent.getHttpServer())
+      .post(path)
+      .set('Authorization', token)
+      .send({ requestId })
+      .expect(201);
+    await request(agent.getHttpServer())
+      .post(path)
+      .set('Authorization', token)
+      .send({ requestId: randomUUID() })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/agent-tools/orders/ord_125')
+      .set('Authorization', token)
+      .expect(200)
+      .expect((response) =>
+        expect(response.body.deliveryAddress).toBe(proposal.address),
+      );
   });
 
   it('enforces order ownership and address eligibility at the business HTTP boundary', async () => {
@@ -562,24 +497,23 @@ describe('Cat store API (e2e)', () => {
       .query({ q: '  salmon  ' })
       .expect(200);
     expect(defaultLimit.body).toHaveLength(5);
-    await expect(
-      callTool(
-        agent,
-        'search-products',
-        { query: 'salmon for sensitive digestion' },
-        {
-          caller: {
-            request: {
-              headers: { authorization: 'Bearer test-customer-token' },
-            },
+    fakeModel.reply(
+      {
+        toolCalls: [
+          {
+            name: 'search-products',
+            input: { query: 'salmon for sensitive digestion' },
           },
-        },
-      ),
-    ).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'prod_sensitive' }),
-      ]),
+        ],
+      },
+      'Here are some products.',
     );
+    const response = await request(agent.getHttpServer())
+      .post(`/assistant/conversations/${conversationId}/messages`)
+      .set('Authorization', 'Bearer test-customer-token')
+      .send({ requestId: randomUUID(), text: 'Find salmon food' })
+      .expect(200);
+    expect(response.text).toContain('prod_sensitive');
   });
 
   it('rejects an approved refund tool call for a different order owned by the same customer', async () => {

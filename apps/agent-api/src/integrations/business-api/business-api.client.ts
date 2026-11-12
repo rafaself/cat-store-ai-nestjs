@@ -12,11 +12,19 @@ import {
   customerOrderSchema,
   addressChangeProposalSchema,
 } from '@cat-supplies-store/contracts';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 export interface CustomerRequest {
   customerId?: string;
   headers: { authorization?: string | string[] };
+  execution?: {
+    runTool<T>(
+      callId: string,
+      name: string,
+      input: unknown,
+      operation: () => Promise<T>,
+    ): Promise<T>;
+  };
 }
 
 @Injectable()
@@ -29,7 +37,12 @@ export class BusinessApiClient {
     path: string,
     caller: CustomerRequest | undefined,
     schema: z.ZodType<T>,
-    body?: { address: string; confirmationId?: string },
+    body?: {
+      address: string;
+      confirmationId?: string;
+      orderId?: string;
+      approved?: true;
+    },
     signal?: AbortSignal,
     method = body ? 'PATCH' : 'GET',
   ): Promise<T> {
@@ -117,6 +130,23 @@ export class BusinessApiClient {
       caller,
       addressChangeProposalSchema,
       { address },
+      signal,
+      'POST',
+    );
+  }
+
+  approveAddressChange(
+    confirmationId: string,
+    orderId: string,
+    address: string,
+    caller: CustomerRequest,
+    signal?: AbortSignal,
+  ) {
+    return this.request(
+      `address-confirmations/${encodeURIComponent(confirmationId)}/approve`,
+      caller,
+      z.object({ approved: z.literal(true) }),
+      { approved: true, orderId, address },
       signal,
       'POST',
     );

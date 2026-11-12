@@ -1,5 +1,8 @@
 export {
   chatRequestSchema,
+  conversationIdSchema,
+  createConversationSchema,
+  conversationApprovalSchema,
   type ChatRequest,
 } from './schemas/chat-request.schema.js';
 export {
@@ -55,11 +58,9 @@ export {
   changeAddressSchema,
   addressConfirmationIdSchema,
   confirmedAddressChangeSchema,
-  addressChangeToolInputSchema,
   addressChangeProposalSchema,
   approveAddressChangeSchema,
   type ConfirmedAddressChange,
-  type AddressChangeToolInput,
   type ApproveAddressChange,
   customerIdentitySchema,
   customerOrderSchema,

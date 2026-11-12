@@ -1,3 +1,5 @@
+import { ConversationService } from './conversation.service';
+import { ConversationRepository } from './conversation.repository';
 import { BusinessApiModule } from '../../integrations/business-api/business-api.module';
 import { OrdersTools } from './tools/orders.tools';
 import { CatalogTools } from './tools/catalog.tools';
@@ -15,6 +17,8 @@ import { ChatStreamService } from './chat-stream.service';
   ],
   controllers: [AssistantController],
   providers: [
+    ConversationService,
+    ConversationRepository,
     ChatStreamService,
     AssistantService,
     CustomerAuthGuard,

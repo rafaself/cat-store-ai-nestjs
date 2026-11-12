@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AiModule } from '@nestjs/ai';
 import { buildAiOptions } from '@cat-supplies-store/ai';
 import { appConfigOptions, aiConfig } from './app.config';
+import { DatabaseModule } from './database/database.module';
 import { AssistantModule } from './apps/assistant/assistant.module';
 import { HealthController } from './health.controller';
 
@@ -15,6 +16,7 @@ import { HealthController } from './health.controller';
       inject: [aiConfig.KEY],
       useFactory: buildAiOptions,
     }),
+    DatabaseModule,
     AssistantModule,
   ],
   providers: [{ provide: APP_PIPE, useClass: StandardSchemaValidationPipe }],

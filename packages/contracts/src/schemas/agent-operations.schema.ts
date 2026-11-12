@@ -10,12 +10,6 @@ export const confirmedAddressChangeSchema = changeAddressSchema
     confirmationId: addressConfirmationIdSchema,
   })
   .strict();
-export const addressChangeToolInputSchema = changeAddressSchema
-  .extend({
-    orderId: orderIdSchema,
-    confirmationId: addressConfirmationIdSchema.optional(),
-  })
-  .strict();
 export const addressChangeProposalSchema = z
   .object({
     status: z.literal('confirmation-required'),
@@ -43,8 +37,5 @@ export type CustomerOrder = z.infer<typeof customerOrderSchema>;
 export type ChangeAddress = z.infer<typeof changeAddressSchema>;
 export type ConfirmedAddressChange = z.infer<
   typeof confirmedAddressChangeSchema
->;
-export type AddressChangeToolInput = z.infer<
-  typeof addressChangeToolInputSchema
 >;
 export type ApproveAddressChange = z.infer<typeof approveAddressChangeSchema>;

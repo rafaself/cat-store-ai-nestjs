@@ -3,6 +3,7 @@ import {
   readEnvironment,
   loadApiConfig,
   loadLoggerConfig,
+  loadDatabaseConfig,
 } from '@cat-supplies-store/config';
 import { createAiConfig, loadAiConfig } from '@cat-supplies-store/ai';
 import { loadAgentApiConfig } from './config/agent-api.config';
@@ -17,6 +18,7 @@ export const appConfigOptions = {
   validate: () => ({
     api: loadApiConfig({ ...environment, PORT: agent.port }),
     logger: loadLoggerConfig(environment),
+    database: loadDatabaseConfig(environment),
     businessApi: { url: agent.businessApiUrl },
   }),
   load: [aiConfig],

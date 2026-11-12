@@ -16,6 +16,9 @@
     },
     {
       "path": "../../packages/ai/tsconfig.json"
+    },
+    {
+      "path": "../../packages/database/tsconfig.json"
     }
   ]
 }

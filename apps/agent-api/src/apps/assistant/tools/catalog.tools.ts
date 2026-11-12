@@ -1,4 +1,5 @@
 import { AgentFunction, type AgentFunctionContext } from '@nestjs/ai';
+import { executeTool } from './execute-tool';
 import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import {
@@ -18,10 +19,12 @@ export class CatalogTools {
     }),
   })
   searchProducts({ query }: { query: string }, context: AgentFunctionContext) {
-    return this.catalog.searchProducts(
-      query,
-      context.request as CustomerRequest | undefined,
-      context.signal,
+    return executeTool(context, { query }, () =>
+      this.catalog.searchProducts(
+        query,
+        context.request as CustomerRequest | undefined,
+        context.signal,
+      ),
     );
   }
 }

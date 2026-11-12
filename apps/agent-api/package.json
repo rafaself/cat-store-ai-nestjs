@@ -20,6 +20,13 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.6.7",
-    "@cat-supplies-store/ai": "workspace:*"
+    "@cat-supplies-store/ai": "workspace:*",
+    "@cat-supplies-store/database": "workspace:*",
+    "@nestjs/typeorm": "12.0.2",
+    "typeorm": "1.1.1",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
   }
 }
